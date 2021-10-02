@@ -1,5 +1,11 @@
 <template>
   <div id="app">
+    <div
+      v-if="mask"
+      id="mask"
+      class="hidden"
+      @click="closeModal"
+    ></div>
     <div id="container">
       <div id="piece">
         <select id="color">
@@ -11,19 +17,41 @@
       </div>
       <canvas id="canvas" width="660" height="580"></canvas>
       <div class="button">
+        <div @click="logout()" class="clear">ログアウト</div>
         <div @click="clearPlayer()" class="clear">plalyer_clear</div>
         <div @click="clearDrowPath()" class="clear" id="paint">paint_clear</div>
         <div @click="scrum()" class="clear" id="paint">scrum</div>
+        <div @click="testPost()" class="clear" id="paint">testPost</div>
       </div>
     </div>
     <div v-for="player in players[0]" :key="player.id" class="player my-team">{{ player.number }}</div>
     <div v-for="player in players[1]" :key="player.id" class="player opponent">{{ player.number }}</div>
     <img src="ball.png" class="player ball">
+    <section
+      v-if="modal"
+      id="sendModal"
+      class="modal"
+    >
+      <div class="modalBody">
+        <h1>あなたの残高:{{ loginUserWallet }}</h1>
+        <h2>送る金額</h2>
+        <input
+          v-model="amount"
+        >
+        <div id=sendError>{{ sendError }}</div>
+      </div>
+      <div class="modalFootter">
+        <div
+          @click="sendMoney"
+          class="send"
+        >送信</div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script>
-
+import axios from '../cloudFireStore';
 export default {
   name: 'App',
   data() {
@@ -33,7 +61,9 @@ export default {
         {name: 'my-team'},
         {name: 'opponent'},
         {name: 'ball'}
-      ]
+      ],
+      mask: false,
+      modal: false
     }
   },
   watch: {
@@ -42,10 +72,11 @@ export default {
     }
   },
   components: {
-    
+
   },
   created() {
     this.createPlayers();
+    // this.fetchData();
   },
   mounted() {
     // window.addEventListener('mousemove', e => {
@@ -159,26 +190,26 @@ export default {
 
           let shiftX = event.clientX - player.getBoundingClientRect().left;
           let shiftY = event.clientY - player.getBoundingClientRect().top;
-  
+
           // player.style.zIndex = 1000;
-          this.setZIndex(players, i, index); 
-    
+          this.setZIndex(players, i, index);
+
           moveAt(event.pageX, event.pageY, index);
-    
+
           // ボールを（pageX、pageY）座標の中心に置く
           function moveAt(pageX, pageY) {
             // this.test1();
             player.style.left = pageX - shiftX + 'px';
             player.style.top = pageY - shiftY + 'px';
           }
-    
+
           function onMouseMove(event) {
             moveAt(event.pageX, event.pageY);
           }
-    
+
           // (3) mousemove でボールを移動する
           document.addEventListener('mousemove', onMouseMove);
-    
+
           // (4) ボールをドロップする。不要なハンドラを削除する
           player.addEventListener('mouseup', e => {
             document.removeEventListener('mousemove', onMouseMove);
@@ -198,13 +229,16 @@ export default {
 
   },
   methods: {
-    test: function(event) {
-      console.log(event);
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.doropEffect = 'move';
+    fetchData() {
+      axios.get('/users').then(response => {
+        console.log(response);
+      });
     },
-    setTest(coordinates) {
-      this.drowPath.push(coordinates);
+    logout: function() {
+      this.$store.dispatch('logout');
+    },
+    testPost() {
+      this.$store.dispatch('testPost');
     },
     createPlayers() {
       for (let j = 0; j < 2; j++) {
@@ -303,7 +337,7 @@ export default {
 
       //グランドの描画
       ctx.strokeRect(
-        ground_leftRight, ground_topBottom, 
+        ground_leftRight, ground_topBottom,
         can_width - (ground_leftRight * 2), can_height - (ground_topBottom * 2)
       );
 
@@ -499,7 +533,7 @@ export default {
   }
   .ball {
     /* background: rgb(161, 60, 60);
-    color: white; */              
+    color: white; */
     width:30px;                                   /* 横幅のサイズを指定    */
     height:30px;
     border-top-left-radius: 40px;
@@ -532,12 +566,77 @@ export default {
   }
   #paint {
     top: 100px;
-    left: 1000px; 
+    left: 1000px;
   }
   #clear:hover {
     background: -webkit-gradient(linear, left bottom, left top, from(#fdfbfb), to(#ebedee));
     background: -webkit-linear-gradient(bottom, #fdfbfb 0%, #ebedee 100%);
     background: linear-gradient(to top, #fdfbfb 0%, #ebedee 100%);
   }
+
+  #mask {
+  background: rgba(0, 0, 0, 0.4);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  z-index: 2000;
+}
+
+.modal {
+  background: #fff;
+  padding: 0;
+  position: fixed;
+  border-radius: 5px;
+  top: 150px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  z-index: 2500;
+}
+
+.modal {
+  width: 300px;
+  height: 190px;
+}
+
+/* .modalFootter {
+  margin-top: 5px;
+} */
+
+.modalBody > h1, h2, p {
+  margin: 0;
+  height: 50px;
+  line-height: 50px;
+  font-weight: normal;
+  border-radius: 5px;
+}
+
+.modalBody > p {
+  font-size: 24px;
+  height: 140px;
+}
+
+.modalFootter {
+  height: 50px;
+  background: #ddd;
+  border-radius: 5px;
+  align-items: flex-end;
+}
+.close, .send {
+  font-size: 16px;
+  color: #fff;
+  background: red;
+  height: 30px;
+  width: 50px;
+  line-height: 30px;
+  margin: 10px auto 10px 130px;
+  border-radius: 5px;
+  cursor: pointer;
+}
 
 </style>

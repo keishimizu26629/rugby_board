@@ -5,31 +5,31 @@
       <fieldset>
         <label>
           メールアドレス
-          <input 
-            type="text" 
-            placeholder="E-mail" 
-            v-model="userAccountData.mailAddress" 
+          <input
+            type="text"
+            placeholder="E-mail"
+            v-model="userAccountData.mailAddress"
           >
         </label>
         <label>
           パスワード
-          <input 
-            type="password" 
-            placeholder="Password" 
-            v-model="userAccountData.password" 
+          <input
+            type="password"
+            placeholder="Password"
+            v-model="userAccountData.password"
           >
         </label>
       </fieldset>
       <div id="loginError">{{ loginError }}</div>
     </div>
 
-    <div 
-      class="button" 
+    <div
+      class="button"
       @click="register2"
     >
       新規登録
     </div>
-    <div 
+    <div
       class="swich"
       @click="toLogin"
     >
@@ -45,7 +45,7 @@
 </template>
 
 <script>
-import axios from '../axios-auth';
+import axios from '../axiosAuth';
 import firebase from 'firebase';
 export default {
   data() {

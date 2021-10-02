@@ -5,31 +5,31 @@
       <fieldset>
         <label>
           メールアドレス
-          <input 
-            type="text" 
-            placeholder="E-mail" 
-            v-model="userAccountData.mailAddress" 
+          <input
+            type="text"
+            placeholder="E-mail"
+            v-model="userAccountData.mailAddress"
           >
         </label>
         <label>
           パスワード
-          <input 
-            type="password" 
-            placeholder="Password" 
-            v-model="userAccountData.password" 
+          <input
+            type="password"
+            placeholder="Password"
+            v-model="userAccountData.password"
           >
         </label>
       </fieldset>
       <div id="loginError">{{ loginError }}</div>
     </div>
 
-    <div 
-      class="button" 
+    <div
+      class="button"
       @click="login"
     >
       ログイン
     </div>
-    <!-- <div 
+    <!-- <div
       class="swich"
       @click="toRegister"
     >
@@ -50,8 +50,8 @@ export default {
   data() {
     return {
       userAccountData: {
-        mailAddress: '',
-        password: '',
+        mailAddress: 'test@gmail.com',
+        password: 'testtest',
       },
     };
   },
@@ -61,16 +61,13 @@ export default {
     }
   },
   methods: {
+    // testLogin() {
+    //   this.$store.dispatch('testLogin', {
+    //     email: this.userAccountData.mailAddress,
+    //     password: this.userAccountData.password
+    //   });
+    // },
     login() {
-      // firebase
-      //   .auth()
-      //   .signInWithEmailAndPassword(this.userAccountData.mailAddress, this.userAccountData.password)
-      //   .then(response => {
-      //     console.log(response);
-      //   })
-      //   .catch(() => {
-      //     console.log('error');
-      //   });
       this.$store.dispatch('login', {
         email: this.userAccountData.mailAddress,
         password: this.userAccountData.password

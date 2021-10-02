@@ -17,10 +17,10 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
-store.dispatch('autoLogin');
-
-new Vue({
-  store,
-  router,
-  render: h => h(App),
-}).$mount('#app')
+store.dispatch('autoLogin').then(() => {
+  new Vue({
+    store,
+    router,
+    render: h => h(App),
+  }).$mount('#app')
+});
