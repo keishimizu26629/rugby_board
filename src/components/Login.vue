@@ -50,8 +50,8 @@ export default {
   data() {
     return {
       userAccountData: {
-        mailAddress: 'test@gmail.com',
-        password: 'testtest',
+        mailAddress: '',
+        password: '',
       },
     };
   },
@@ -90,6 +90,7 @@ export default {
 
 <style scoped>
 h1 {
+  margin: 10px;
   text-align: center;
 }
 fieldset {

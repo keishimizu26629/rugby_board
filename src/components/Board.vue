@@ -1,11 +1,5 @@
 <template>
   <div id="app">
-    <div
-      v-if="mask"
-      id="mask"
-      class="hidden"
-      @click="closeModal"
-    ></div>
     <div id="container">
       <div id="piece">
         <select id="color">
@@ -16,52 +10,70 @@
         </select>
       </div>
       <canvas id="canvas" width="660" height="580"></canvas>
-      <div class="button">
-        <div @click="logout()" class="clear">ログアウト</div>
-        <div @click="clearPlayer()" class="clear">plalyer_clear</div>
-        <div @click="clearDrowPath()" class="clear" id="paint">paint_clear</div>
-        <div @click="scrum()" class="clear" id="paint">scrum</div>
-        <div @click="testPost()" class="clear" id="paint">testPost</div>
+      <div class="buttons">
+        <div @click="logout()" class="button">ログアウト</div>
+        <div class="clearWrap">
+          <div @click="clearPlayer()" class="button clear">plalyer_clear</div>
+          <div @click="clearDrowPath()" class="button clear" id="paint">paint_clear</div>
+        </div>
+        <div @click="scrum()" class="button" id="paint">scrum</div>
+        <div @click="openModal()" class="button" id="paint">登録</div>
+        <div @click="customPlacement()" class="button" id="paint">配置</div>
+        <template v-for="(position, index) in positions">
+          <div class="label" :key="`third-${index}`">
+            <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
+            <label :for="index" :id="index" :key="`label-${index}`">{{ position.name }}</label>
+            <div class="delete" :key="`first-${index}`" @click="deletePosition(position.name)">[×]</div>
+          </div>
+        </template>
       </div>
     </div>
-    <div v-for="player in players[0]" :key="player.id" class="player my-team">{{ player.number }}</div>
-    <div v-for="player in players[1]" :key="player.id" class="player opponent">{{ player.number }}</div>
-    <img src="ball.png" class="player ball">
+    <div v-for="player in players[0]" :key="player.id" class="player my-team drowPlayer">{{ player.number }}</div>
+    <div v-for="player in players[1]" :key="player.id" class="player opponent drowPlayer">{{ player.number }}</div>
+    <img src="ball.png" class="player ball drowPlayer">
     <section
       v-if="modal"
       id="sendModal"
       class="modal"
     >
       <div class="modalBody">
-        <h1>あなたの残高:{{ loginUserWallet }}</h1>
-        <h2>送る金額</h2>
-        <input
-          v-model="amount"
-        >
-        <div id=sendError>{{ sendError }}</div>
+        <p>配置の名前を入力してください。</p>
+        <input type="text" v-model="inputPosition">
+        <div id=sendError></div>
       </div>
       <div class="modalFootter">
         <div
-          @click="sendMoney"
-          class="send"
-        >送信</div>
+          class="register"
+          @click="testPost"
+        >登録</div>
       </div>
     </section>
+    <div
+      v-if="mask"
+      id="mask"
+      class="hidden"
+      @click="closeModal"
+    ></div>
   </div>
 </template>
 
 <script>
-import axios from '../cloudFireStore';
+// import axios from '../cloudFireStore';
+import firebase from 'firebase';
 export default {
   name: 'App',
   data() {
     return {
       players: [],
+      // drowPath: [],
       teams: [
         {name: 'my-team'},
         {name: 'opponent'},
         {name: 'ball'}
       ],
+      // positions: [],
+      inputPosition: '',
+      selectPosition: '',
       mask: false,
       modal: false
     }
@@ -71,12 +83,13 @@ export default {
 
     }
   },
-  components: {
-
+  computed: {
+    positions() {
+      return this.$store.getters.positions;
+    }
   },
   created() {
     this.createPlayers();
-    // this.fetchData();
   },
   mounted() {
     // window.addEventListener('mousemove', e => {
@@ -89,7 +102,8 @@ export default {
     let gY = 0;
     let gColor = 'white';
     const canvas = document.getElementById('canvas');
-    console.log(canvas.getBoundingClientRect().left);
+    //↓要素の左のwidth
+    // console.log(canvas.getBoundingClientRect().left);
     const ctx = canvas.getContext('2d');
     const drowPath = [];
     this.placement();
@@ -122,7 +136,7 @@ export default {
     function startDraw(e){
       let players = document.getElementsByClassName('player');
       players.forEach(player => {
-        player.style.cursor = 'default';
+        player.classList.remove('drowPlayer');
       });
       flgDraw = true;
       gX = e.offsetX;
@@ -144,8 +158,7 @@ export default {
         con.strokeStyle = gColor;
         // 描画開始
         con.beginPath();
-        con.moveTo(gX, gY);
-        con.lineTo(x, y);
+        con.moveTo(gX, gY); con.lineTo(x, y);
         con.closePath();
         con.stroke();
         let coordinates = {
@@ -155,19 +168,20 @@ export default {
           y: y,
           color: gColor
         }
-        // this.setTest(coordinates);
-        drowPath.push(coordinates);
-
         // 次の描画開始点
         gX = x;
         gY = y;
+        console.log(coordinates);
+        drowPath.push(coordinates);
+        // let clone_drowPath = [];
+        // console.log(typeof(this.drowPath));
       }
     }
     // 描画終了
     function endDraw(){
       let players = document.getElementsByClassName('player');
       players.forEach(player => {
-        player.style.cursor = 'grab';
+        player.classList.add('drowPlayer');
       });
       flgDraw = false;
       setDrowPath();
@@ -202,7 +216,6 @@ export default {
             player.style.left = pageX - shiftX + 'px';
             player.style.top = pageY - shiftY + 'px';
           }
-
           function onMouseMove(event) {
             moveAt(event.pageX, event.pageY);
           }
@@ -213,10 +226,6 @@ export default {
           // (4) ボールをドロップする。不要なハンドラを削除する
           player.addEventListener('mouseup', e => {
             document.removeEventListener('mousemove', onMouseMove);
-            // player.addEventListener('mouseup', null);
-            // this.test1();
-            // console.log(e.pageX - shiftX, e.pageY - shiftY, index);
-            // player.style.zIndex = 10;
             this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
           });
         });
@@ -229,16 +238,42 @@ export default {
 
   },
   methods: {
-    fetchData() {
-      axios.get('/users').then(response => {
-        console.log(response);
-      });
-    },
     logout: function() {
       this.$store.dispatch('logout');
     },
+    transformObject() {
+      const position = {};
+      const players = this.players;
+      for (let i = 0; i < players.length; i++) {
+        let clone_players = {};
+        players[i].forEach(player => {
+          clone_players[player.number] = player;
+        })
+        position[i] = clone_players;
+      }
+      return position;
+    },
     testPost() {
-      this.$store.dispatch('testPost');
+      const position = this.transformObject();
+      this.$store.dispatch('testPost', {name: this.inputPosition, players: position});
+      this.closeModal();
+    },
+    customPlacement() {
+      this.positions.forEach(position => {
+        if (position.name == this.selectPosition) {
+          const newPosition = Object.values(position.position);
+          // const testPosition = [];
+          this.players.length = 0;
+          newPosition.forEach(value => {
+            let clonePosition = Object.values(value);
+            // testPosition.push(clonePosition);
+            this.players.push(clonePosition);
+          });
+          // console.log(testPosition);
+          this.rellocation();
+        }
+      });
+
     },
     createPlayers() {
       for (let j = 0; j < 2; j++) {
@@ -277,7 +312,10 @@ export default {
     },
     clearDrowPath() {
       localStorage.removeItem('drowPath');
-      window.location.reload();
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 660, 580);
+      this.drowGround();
     },
     setZIndex(players, i, index) {
       let playersAll = document.getElementsByClassName('player');
@@ -293,8 +331,24 @@ export default {
       players[index].style.zIndex = 310;
     },
     clearPlayer() {
+      this.players = [];
+      this.createPlayers();
+      this.rellocation();
       localStorage.removeItem('players');
-      window.location.reload();
+      // window.location.reload();
+    },
+    rellocation() {
+      let teams = this.teams
+      teams.forEach((team, i) => {
+        let players = document.getElementsByClassName(team.name);
+        players.forEach((player, index) => {
+          player.style.position = 'absolute';
+          player.style.left = this.players[i][index].x + 'px';
+          player.style.top = this.players[i][index].y + 'px';
+          player.style.zIndex = this.players[i][index].zIndex;
+        });
+      });
+      localStorage.setItem('players', JSON.stringify(this.players));
     },
     scrum() {
       let coordinates = [
@@ -324,6 +378,21 @@ export default {
       });
       localStorage.setItem('players', JSON.stringify(this.players));
     },
+    closeModal() {
+      this.modal = false;
+      this.mask = false;
+      this.inputPosition = '';
+    },
+    openModal() {
+      this.modal = true;
+      this.mask = true;
+    },
+    deletePosition(name) {
+      if (confirm('削除しますか？')) {
+        this.$store.dispatch('testDelete', name);
+        // console.log(name);
+      }
+    },
     drowGround() {
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
@@ -343,104 +412,63 @@ export default {
 
       ctx.beginPath();
       // ポール
-      ctx.moveTo(200 / 440 * can_width,70);
-      ctx.lineTo(200 / 440 * can_width,30);
-      ctx.moveTo(240 / 440 * can_width,70);
-      ctx.lineTo(240 / 440 * can_width,30);
-      ctx.moveTo(200 / 440 * can_width,55);
-      ctx.lineTo(240 / 440 * can_width,55);
+      ctx.moveTo(200 / 440 * can_width,70); ctx.lineTo(200 / 440 * can_width,30);
+      ctx.moveTo(240 / 440 * can_width,70); ctx.lineTo(240 / 440 * can_width,30);
+      ctx.moveTo(200 / 440 * can_width,55); ctx.lineTo(240 / 440 * can_width,55);
 
-      ctx.moveTo(200 / 440 * can_width,510);
-      ctx.lineTo(200 / 440 * can_width,550);
-      ctx.moveTo(240 / 440 * can_width,510);
-      ctx.lineTo(240 / 440 * can_width,550);
-      ctx.moveTo(200 / 440 * can_width,525);
-      ctx.lineTo(240 / 440 * can_width,525);
+      ctx.moveTo(200 / 440 * can_width,510); ctx.lineTo(200 / 440 * can_width,550);
+      ctx.moveTo(240 / 440 * can_width,510); ctx.lineTo(240 / 440 * can_width,550);
+      ctx.moveTo(200 / 440 * can_width,525); ctx.lineTo(240 / 440 * can_width,525);
       ctx.lineWidth = 6;
       ctx.stroke();
       //インゴール
-      ctx.moveTo(ground_leftRight,70);
-      ctx.lineTo(can_width - ground_leftRight,70);
-      ctx.moveTo(ground_leftRight,510);
-      ctx.lineTo(can_width - ground_leftRight,510);
+      ctx.moveTo(ground_leftRight,70); ctx.lineTo(can_width - ground_leftRight,70);
+      ctx.moveTo(ground_leftRight,510); ctx.lineTo(can_width - ground_leftRight,510);
       ctx.lineWidth = 3;
       ctx.stroke();
       //5m実線
-      // ctx.moveTo(60,70);
-      // ctx.lineTo(60,95);
-      ctx.moveTo(48 / 440 * can_width,94);
-      ctx.lineTo(72 / 440 * can_width,94);
+      ctx.moveTo(48 / 440 * can_width,94); ctx.lineTo(72 / 440 * can_width,94);
 
-      // ctx.moveTo(380,70);
-      // ctx.lineTo(380,95);
-      ctx.moveTo(368 / 440 * can_width,94);
-      ctx.lineTo(392 / 440 * can_width,94);
+      ctx.moveTo(368 / 440 * can_width,94); ctx.lineTo(392 / 440 * can_width,94);
 
-      // ctx.moveTo(60,510);
-      // ctx.lineTo(60,485);
-      ctx.moveTo(48 / 440 * can_width,486);
-      ctx.lineTo(72 / 440 * can_width,486);
+      ctx.moveTo(48 / 440 * can_width,486); ctx.lineTo(72 / 440 * can_width,486);
 
-      // ctx.moveTo(380,510);
-      // ctx.lineTo(380,485);
-      ctx.moveTo(368 / 440 * can_width,486);
-      ctx.lineTo(392 / 440 * can_width,486);
+      ctx.moveTo(368 / 440 * can_width,486); ctx.lineTo(392 / 440 * can_width,486);
       //ポール5m
-      ctx.moveTo(176 / 440 * can_width,94);
-      ctx.lineTo(200 / 440 * can_width,94);
-      ctx.moveTo(240 / 440 * can_width,94);
-      ctx.lineTo(264 / 440 * can_width,94);
-      ctx.moveTo(176 / 440 * can_width,486);
-      ctx.lineTo(200 / 440 * can_width,486);
-      ctx.moveTo(240 / 440 * can_width,486);
-      ctx.lineTo(264 / 440 * can_width,486);
+      ctx.moveTo(176 / 440 * can_width,94); ctx.lineTo(200 / 440 * can_width,94);
+      ctx.moveTo(240 / 440 * can_width,94); ctx.lineTo(264 / 440 * can_width,94);
+      ctx.moveTo(176 / 440 * can_width,486); ctx.lineTo(200 / 440 * can_width,486);
+      ctx.moveTo(240 / 440 * can_width,486); ctx.lineTo(264 / 440 * can_width,486);
       //15m実線
-      ctx.moveTo(120 / 440 * can_width,70);
-      ctx.lineTo(120 / 440 * can_width,95);
-      ctx.moveTo(108 / 440 * can_width,94);
-      ctx.lineTo(132 / 440 * can_width,94);
+      ctx.moveTo(120 / 440 * can_width,70); ctx.lineTo(120 / 440 * can_width,95);
+      ctx.moveTo(108 / 440 * can_width,94); ctx.lineTo(132 / 440 * can_width,94);
 
-      ctx.moveTo(320 / 440 * can_width,70);
-      ctx.lineTo(320 / 440 * can_width,95);
-      ctx.moveTo(308 / 440 * can_width,94);
-      ctx.lineTo(332 / 440 * can_width,94);
+      ctx.moveTo(320 / 440 * can_width,70); ctx.lineTo(320 / 440 * can_width,95);
+      ctx.moveTo(308 / 440 * can_width,94); ctx.lineTo(332 / 440 * can_width,94);
 
-      ctx.moveTo(120 / 440 * can_width,510);
-      ctx.lineTo(120 / 440 * can_width,485);
-      ctx.moveTo(108 / 440 * can_width,486);
-      ctx.lineTo(132 / 440 * can_width,486);
+      ctx.moveTo(120 / 440 * can_width,510); ctx.lineTo(120 / 440 * can_width,485);
+      ctx.moveTo(108 / 440 * can_width,486); ctx.lineTo(132 / 440 * can_width,486);
 
-      ctx.moveTo(320 / 440 * can_width,510);
-      ctx.lineTo(320 / 440 * can_width,485);
-      ctx.moveTo(308 / 440 * can_width,486);
-      ctx.lineTo(332 / 440 * can_width,486);
+      ctx.moveTo(320 / 440 * can_width,510); ctx.lineTo(320 / 440 * can_width,485);
+      ctx.moveTo(308 / 440 * can_width,486); ctx.lineTo(332 / 440 * can_width,486);
 
       //22mライン
-      ctx.moveTo(ground_leftRight,157);
-      ctx.lineTo(can_width - ground_leftRight,157);
-      ctx.moveTo(ground_leftRight,413);
-      ctx.lineTo(can_width - ground_leftRight,413);
+      ctx.moveTo(ground_leftRight,157); ctx.lineTo(can_width - ground_leftRight,157);
+      ctx.moveTo(ground_leftRight,413); ctx.lineTo(can_width - ground_leftRight,413);
       //ハーフライン
-      ctx.moveTo(ground_leftRight,290);
-      ctx.lineTo(can_width - ground_leftRight,290);
+      ctx.moveTo(ground_leftRight,290); ctx.lineTo(can_width - ground_leftRight,290);
       ctx.lineWidth = 3;
       ctx.stroke();
       //10mライン
       ctx.beginPath();
-      ctx.moveTo(ground_leftRight,244);
-      ctx.lineTo(can_width - ground_leftRight,244);
-      ctx.moveTo(ground_leftRight,336);
-      ctx.lineTo(can_width - ground_leftRight,336);
+      ctx.moveTo(ground_leftRight,244); ctx.lineTo(can_width - ground_leftRight,244);
+      ctx.moveTo(ground_leftRight,336); ctx.lineTo(can_width - ground_leftRight,336);
 
       //5m点線
-      ctx.moveTo(60 / 440 * can_width,103);
-      ctx.lineTo(60 / 440 * can_width,479);
-      ctx.moveTo(380 / 440 * can_width,103);
-      ctx.lineTo(380 / 440 * can_width,479);
-      ctx.moveTo(120 / 440 * can_width,103);
-      ctx.lineTo(120 / 440 * can_width,479);
-      ctx.moveTo(320 / 440 * can_width,103);
-      ctx.lineTo(320 / 440 * can_width,479);
+      ctx.moveTo(60 / 440 * can_width,103); ctx.lineTo(60 / 440 * can_width,479);
+      ctx.moveTo(380 / 440 * can_width,103); ctx.lineTo(380 / 440 * can_width,479);
+      ctx.moveTo(120 / 440 * can_width,103); ctx.lineTo(120 / 440 * can_width,479);
+      ctx.moveTo(320 / 440 * can_width,103); ctx.lineTo(320 / 440 * can_width,479);
       ctx.setLineDash([8, 10]);
       ctx.stroke();
 
@@ -450,9 +478,9 @@ export default {
 }
 </script>
 
-<style>
+<style scoped>
   body {
-    height: 100%;
+    /* height: 100%; */
     margin: 0;
     padding: 0;
     /* cursor: grab; */
@@ -502,13 +530,14 @@ export default {
     box-shadow: inset 0px 1.5px 0 rgba(255,255,255,0.3), 0 1.5px 1.5px rgba(0, 0, 0, 0.3);
     overflow: hidden;
   }
-  .player:hover {
+
+  .drowPlayer:hover {
     cursor: grab;
   }
-  .player:active {
+  .drowPlayer:active {
     cursor: grabbing;
-    /* z-index: 2000; */
   }
+
   .test {
     z-index: 1000;
     position: absolute;
@@ -542,9 +571,8 @@ export default {
     border-bottom-right-radius: 40px;
     background: none;
   }
-  .ball:hover {
-  }
-  .clear {
+
+  .button {
     border: 1px solid #ccc;
     background: #f1e767;
     background: -webkit-gradient(linear, left top, left bottom, from(#fdfbfb), to(#ebedee));
@@ -554,24 +582,20 @@ export default {
     box-shadow: inset 1px 1px 1px #fff;
     height: 30px;
     width: 150px;
-    /* position: absolute;
-    top: 30px;
-    left: 1000px; */
-    margin-top: 30px;
+    margin-top: 20px;
+    margin-bottom: 30px;
     margin-left: 30px;
     border-radius: 5px;
     text-align: center;
     line-height: 30px;
     cursor: pointer;
   }
+  .clearWrap {
+    display: flex;
+  }
   #paint {
     top: 100px;
     left: 1000px;
-  }
-  #clear:hover {
-    background: -webkit-gradient(linear, left bottom, left top, from(#fdfbfb), to(#ebedee));
-    background: -webkit-linear-gradient(bottom, #fdfbfb 0%, #ebedee 100%);
-    background: linear-gradient(to top, #fdfbfb 0%, #ebedee 100%);
   }
 
   #mask {
@@ -601,7 +625,16 @@ export default {
 
 .modal {
   width: 300px;
-  height: 190px;
+  height: 150px;
+}
+
+.modalBody {
+  height: 100px;
+}
+
+.modalBody > input {
+  width: auto;
+  margin-left: 10px;
 }
 
 /* .modalFootter {
@@ -614,28 +647,53 @@ export default {
   line-height: 50px;
   font-weight: normal;
   border-radius: 5px;
+  text-align: center;
 }
 
 .modalBody > p {
-  font-size: 24px;
-  height: 140px;
+  font-size: 18px;
+  height: auto;
 }
 
 .modalFootter {
-  height: 50px;
+  height: auto;
   background: #ddd;
   border-radius: 5px;
   align-items: flex-end;
 }
-.close, .send {
+.close, .register {
   font-size: 16px;
   color: #fff;
-  background: red;
+  background: rgb(248, 109, 29);
   height: 30px;
   width: 50px;
   line-height: 30px;
   margin: 10px auto 10px 130px;
   border-radius: 5px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.label {
+  margin: 10px 20px;
+  height: 20px;
+  display: flex;
+}
+
+.delete {
+  padding-left: 10px;
+  cursor: pointer;
+  line-height: 20px;
+}
+
+.delete:hover, label:hover {
+  color: blue;
+  opacity: 0.8;
+}
+
+label {
+  font-size: 20px;
+  line-height: 20px;
   cursor: pointer;
 }
 
