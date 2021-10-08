@@ -58,8 +58,6 @@
 </template>
 
 <script>
-// import axios from '../cloudFireStore';
-import firebase from 'firebase';
 export default {
   name: 'App',
   data() {
