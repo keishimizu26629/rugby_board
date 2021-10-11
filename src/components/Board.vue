@@ -14,11 +14,12 @@
         <div @click="logout()" class="button">ログアウト</div>
         <div class="clearWrap">
           <div @click="clearPlayer()" class="button clear">plalyer_clear</div>
-          <div @click="clearDrowPath()" class="button clear" id="paint">paint_clear</div>
+          <div @click="cleardrawPath()" class="button clear" id="paint">paint_clear</div>
         </div>
         <div @click="scrum()" class="button" id="paint">scrum</div>
         <div @click="openModal()" class="button" id="paint">登録</div>
         <div @click="customPlacement()" class="button" id="paint">配置</div>
+        <div @click="testMove()" class="button" id="paint">testMove</div>
         <template v-for="(position, index) in positions">
           <div class="label" :key="`third-${index}`">
             <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
@@ -28,9 +29,9 @@
         </template>
       </div>
     </div>
-    <div v-for="player in players[0]" :key="player.id" class="player my-team drowPlayer">{{ player.number }}</div>
-    <div v-for="player in players[1]" :key="player.id" class="player opponent drowPlayer">{{ player.number }}</div>
-    <img src="ball.png" class="player ball drowPlayer">
+    <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer">{{ player.number }}</div>
+    <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
+    <img src="ball.png" class="player ball drawPlayer">
     <section
       v-if="modal"
       id="sendModal"
@@ -63,7 +64,6 @@ export default {
   data() {
     return {
       players: [],
-      // drowPath: [],
       teams: [
         {name: 'my-team'},
         {name: 'opponent'},
@@ -72,8 +72,11 @@ export default {
       // positions: [],
       inputPosition: '',
       selectPosition: '',
+      flagDraw: false,
       mask: false,
-      modal: false
+      modal: false,
+      drawPath: [],
+      count: 0,
     }
   },
   watch: {
@@ -90,12 +93,7 @@ export default {
     this.createPlayers();
   },
   mounted() {
-    // window.addEventListener('mousemove', e => {
-    //   console.log('client(%s, %s) offset(%s, %s) screen(%s, %s)',e.clientX, e.clientY, e.offsetX, e.offsetY, e.screenX, e.screenY);
-    // });
-    // 描画用フラグ  true: 描画中   false: 描画中でない
-    let flgDraw = false;
-    // 座標
+    this.startDraw = this.startDraw.bind(this);
     let gX = 0;
     let gY = 0;
     let gColor = 'white';
@@ -103,47 +101,32 @@ export default {
     //↓要素の左のwidth
     // console.log(canvas.getBoundingClientRect().left);
     const ctx = canvas.getContext('2d');
-    const drowPath = [];
+    // const drawPath = [];
     this.placement();
-    drowAgain(ctx);
+    this.drawAgain(ctx);
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 3;
-    canvas.addEventListener('mousedown', startDraw, false);
-    canvas.addEventListener('mousemove', Draw, false);
-    canvas.addEventListener('mouseup', endDraw, false);
+    canvas.addEventListener('mousedown', startDraw.bind(this), false);
+    canvas.addEventListener('mousemove', Draw.bind(this), false);
+    canvas.addEventListener('mouseup', endDraw.bind(this), false);
     let s = document.getElementById('color');
     s.addEventListener('change', changeColor, false);
-    function drowAgain(ctx) {
-      const clone_drowPath = JSON.parse(localStorage.getItem('drowPath'));
-      if (clone_drowPath) {
-        clone_drowPath.forEach(coordinates => {
-          ctx.strokeStyle = coordinates.color;
-          ctx.beginPath();
-          ctx.moveTo(coordinates.gx, coordinates.gy);
-          ctx.lineTo(coordinates.x, coordinates.y);
-          ctx.closePath();
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          drowPath.push(coordinates);
-        });
-      }
-    }
+
     function changeColor(){
       gColor = document.getElementById('color').value;
     }
     function startDraw(e){
       let players = document.getElementsByClassName('player');
       players.forEach(player => {
-        player.classList.remove('drowPlayer');
+        player.classList.remove('drawPlayer');
       });
-      flgDraw = true;
+      this.flagDraw = true;
       gX = e.offsetX;
       gY = e.offsetY;
     }
 
     function Draw(e){
-      if (flgDraw == true){
-          // '2dコンテキスト'を取得
+      if (this.flagDraw == true){
         const canvas = document.getElementById('canvas');
         const con = canvas.getContext('2d');
 
@@ -169,24 +152,21 @@ export default {
         // 次の描画開始点
         gX = x;
         gY = y;
-        console.log(coordinates);
-        drowPath.push(coordinates);
-        // let clone_drowPath = [];
-        // console.log(typeof(this.drowPath));
+        this.drawPath.push(coordinates);
       }
     }
     // 描画終了
     function endDraw(){
       let players = document.getElementsByClassName('player');
       players.forEach(player => {
-        player.classList.add('drowPlayer');
+        player.classList.add('drawPlayer');
       });
-      flgDraw = false;
-      setDrowPath();
+      this.flagDraw = false;
+      setdrawPath(this.drawPath);
     }
 
-    function setDrowPath() {
-      localStorage.setItem('drowPath', JSON.stringify(drowPath));
+    function setdrawPath(drawPath) {
+      localStorage.setItem('drawPath', JSON.stringify(drawPath));
     }
 
     let teams = this.teams
@@ -236,8 +216,33 @@ export default {
 
   },
   methods: {
+    startDraw() {
+
+    },
     logout: function() {
       this.$store.dispatch('logout');
+    },
+    testMove() {
+      setTimeout(() => {
+        this.testSetTimeout()
+      }, 100);
+    },
+    testSetTimeout() {
+      this.players[0][9].y = this.players[0][9].y - 0.1;
+      this.players[0][11].y = this.players[0][11].y - 0.1;
+      this.players[0][11].x = this.players[0][11].x + 0.1;
+      this.players[0][12].y = this.players[0][12].y - 0.1;
+      this.players[0][12].x = this.players[0][12].x - 0.1;
+      console.log(this.count);
+      this.rellocation();
+      this.count = this.count + 1;
+      if (this.count < 2000) {
+        setTimeout(() => {
+          this.testSetTimeout()
+        }, 1)
+      } else {
+        this.count = 0;
+      }
     },
     transformObject() {
       const position = {};
@@ -298,7 +303,7 @@ export default {
     },
     placement() {
       const clone_players = localStorage.getItem('players');
-      this.drowGround();
+      this.drawGround();
       if (clone_players) {
         this.players = JSON.parse(clone_players);
       }
@@ -308,12 +313,31 @@ export default {
       this.players[i][index].y = top;
       localStorage.setItem('players', JSON.stringify(this.players));
     },
-    clearDrowPath() {
-      localStorage.removeItem('drowPath');
+    drawAgain(ctx) {
+      const clone_drawPath = JSON.parse(localStorage.getItem('drawPath'));
+      if (clone_drawPath) {
+        clone_drawPath.forEach(coordinates => {
+          ctx.strokeStyle = coordinates.color;
+          ctx.beginPath();
+          ctx.moveTo(coordinates.gx, coordinates.gy);
+          ctx.lineTo(coordinates.x, coordinates.y);
+          ctx.closePath();
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          this.drawPath.push(coordinates);
+        });
+      }
+    },
+    setDrawPath(drawPath) {
+      localStorage.setItem('drawPath', JSON.stringify(drawPath));
+    },
+    cleardrawPath() {
+      localStorage.removeItem('drawPath');
+      this.drawPath = [];
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, 660, 580);
-      this.drowGround();
+      this.drawGround();
     },
     setZIndex(players, i, index) {
       let playersAll = document.getElementsByClassName('player');
@@ -391,7 +415,7 @@ export default {
         // console.log(name);
       }
     },
-    drowGround() {
+    drawGround() {
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       ctx.strokeStyle = '#fff';
@@ -529,10 +553,10 @@ export default {
     overflow: hidden;
   }
 
-  .drowPlayer:hover {
+  .drawPlayer:hover {
     cursor: grab;
   }
-  .drowPlayer:active {
+  .drawPlayer:active {
     cursor: grabbing;
   }
 
