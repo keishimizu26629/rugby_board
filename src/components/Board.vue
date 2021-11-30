@@ -18,8 +18,8 @@
         </div>
         <div @click="scrum()" class="button" id="paint">scrum</div>
         <div @click="openModal()" class="button" id="paint">登録</div>
-        <div @click="customPlacement()" class="button" id="paint">配置</div>
-        <div @click="testMove()" class="button" id="paint">testMove</div>
+        <div @click="customPlacement(positions)" class="button" id="paint">配置</div>
+        <!-- <div @click="testMove()" class="button" id="paint">testMove</div> -->
         <template v-for="(position, index) in positions">
           <div class="label" :key="`third-${index}`">
             <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
@@ -59,6 +59,7 @@
 </template>
 
 <script>
+import firebase from 'firebase';
 export default {
   name: 'App',
   data() {
@@ -77,6 +78,7 @@ export default {
       modal: false,
       drawPath: [],
       count: 0,
+      testPositions: [],
     }
   },
   watch: {
@@ -87,13 +89,17 @@ export default {
   computed: {
     positions() {
       return this.$store.getters.positions;
-    }
+    },
+    uid() {
+      return this.$store.getters.loginUser.uid;
+    },
   },
   created() {
     this.createPlayers();
+    // this.testFetch();
   },
   mounted() {
-    this.startDraw = this.startDraw.bind(this);
+    // this.startDraw = this.startDraw.bind(this);
     let gX = 0;
     let gY = 0;
     let gColor = 'white';
@@ -167,6 +173,7 @@ export default {
 
     function setdrawPath(drawPath) {
       localStorage.setItem('drawPath', JSON.stringify(drawPath));
+      console.log(drawPath);
     }
 
     let teams = this.teams
@@ -216,8 +223,20 @@ export default {
 
   },
   methods: {
-    startDraw() {
-
+    async testFetch() {
+      try {
+        const response = await firebase.firestore().collection('users').doc(this.uid).get();
+        const positions = response.data().positions;
+        this.testPositions = [];
+        Object.entries(positions).forEach(object => {
+          let position = {};
+          position.name = object[1].name;
+          position.position = object[1].position;
+          this.testPositions.push(position);
+        });
+      } catch(e) {
+        console.log(e);
+      }
     },
     logout: function() {
       this.$store.dispatch('logout');
@@ -261,22 +280,41 @@ export default {
       this.$store.dispatch('testPost', {name: this.inputPosition, players: position});
       this.closeModal();
     },
-    customPlacement() {
-      this.positions.forEach(position => {
+    customPlacement(positions) {
+      const testPositions = positions.slice();
+      this.players = [];
+      testPositions.forEach((position) => {
         if (position.name == this.selectPosition) {
           const newPosition = Object.values(position.position);
-          // const testPosition = [];
-          this.players.length = 0;
-          newPosition.forEach(value => {
-            let clonePosition = Object.values(value);
-            // testPosition.push(clonePosition);
-            this.players.push(clonePosition);
+          newPosition.forEach(players => {
+            const clonePlayers = [];
+            Object.values(players).forEach(player => {
+              const clonePlayer = {
+                number: player.number,
+                x: player.x,
+                y: player.y,
+                zIndex: player.zIndex,
+              }
+              clonePlayers.push(clonePlayer);
+            });
+            this.players.push(clonePlayers);
           });
-          // console.log(testPosition);
           this.rellocation();
         }
       });
-
+    },
+    rellocation() {
+      let teams = this.teams
+      teams.forEach((team, i) => {
+        let players = document.getElementsByClassName(team.name);
+        players.forEach((player, index) => {
+          player.style.position = 'absolute';
+          player.style.left = this.players[i][index].x + 'px';
+          player.style.top = this.players[i][index].y + 'px';
+          player.style.zIndex = this.players[i][index].zIndex;
+        });
+      });
+      localStorage.setItem('players', JSON.stringify(this.players));
     },
     createPlayers() {
       for (let j = 0; j < 2; j++) {
@@ -358,19 +396,6 @@ export default {
       this.rellocation();
       localStorage.removeItem('players');
       // window.location.reload();
-    },
-    rellocation() {
-      let teams = this.teams
-      teams.forEach((team, i) => {
-        let players = document.getElementsByClassName(team.name);
-        players.forEach((player, index) => {
-          player.style.position = 'absolute';
-          player.style.left = this.players[i][index].x + 'px';
-          player.style.top = this.players[i][index].y + 'px';
-          player.style.zIndex = this.players[i][index].zIndex;
-        });
-      });
-      localStorage.setItem('players', JSON.stringify(this.players));
     },
     scrum() {
       let coordinates = [
@@ -553,13 +578,6 @@ export default {
     overflow: hidden;
   }
 
-  .drawPlayer:hover {
-    cursor: grab;
-  }
-  .drawPlayer:active {
-    cursor: grabbing;
-  }
-
   .test {
     z-index: 1000;
     position: absolute;
@@ -718,5 +736,12 @@ label {
   line-height: 20px;
   cursor: pointer;
 }
+
+.drawPlayer:hover {
+    cursor: grab;
+  }
+  .drawPlayer:active {
+    cursor: grabbing;
+  }
 
 </style>

@@ -23,7 +23,7 @@ export default new Vuex.Store({
       state.loginUser = user;
     },
     updatePosition(state, positions) {
-      state.positions.length = 0;
+      state.positions = [];
       Object.entries(positions).forEach(object => {
         let position = {};
         position.name = object[1].name;

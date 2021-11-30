@@ -3,6 +3,7 @@ import App from './App.vue';
 import firebase from 'firebase';
 import router from './router';
 import store from './store';
+import vuetify from './plugins/vuetify'
 
 Vue.config.productionTip = false
 
@@ -21,6 +22,7 @@ store.dispatch('autoLogin').then(() => {
   new Vue({
     store,
     router,
-    render: h => h(App),
+    vuetify,
+    render: h => h(App)
   }).$mount('#app')
 });
