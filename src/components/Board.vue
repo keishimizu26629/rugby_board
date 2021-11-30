@@ -281,27 +281,29 @@ export default {
       this.closeModal();
     },
     customPlacement(positions) {
-      const testPositions = positions.slice();
-      this.players = [];
-      testPositions.forEach((position) => {
-        if (position.name == this.selectPosition) {
-          const newPosition = Object.values(position.position);
-          newPosition.forEach(players => {
-            const clonePlayers = [];
-            Object.values(players).forEach(player => {
-              const clonePlayer = {
-                number: player.number,
-                x: player.x,
-                y: player.y,
-                zIndex: player.zIndex,
-              }
-              clonePlayers.push(clonePlayer);
+      if (this.selectPosition != '') {
+        const testPositions = positions.slice();
+        this.players = [];
+        testPositions.forEach((position) => {
+          if (position.name == this.selectPosition) {
+            const newPosition = Object.values(position.position);
+            newPosition.forEach(players => {
+              const clonePlayers = [];
+              Object.values(players).forEach(player => {
+                const clonePlayer = {
+                  number: player.number,
+                  x: player.x,
+                  y: player.y,
+                  zIndex: player.zIndex,
+                }
+                clonePlayers.push(clonePlayer);
+              });
+              this.players.push(clonePlayers);
             });
-            this.players.push(clonePlayers);
-          });
-          this.rellocation();
-        }
-      });
+            this.rellocation();
+          }
+        });
+      }
     },
     rellocation() {
       let teams = this.teams
