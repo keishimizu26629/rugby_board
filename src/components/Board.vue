@@ -2,35 +2,85 @@
   <div id="app">
     <div id="container">
       <div id="piece">
-        <select id="color">
-          <option value="white" style="background-color:white;color:black" selected>white</option>
-          <option value="red" style="background-color:red;color:black">red</option>
-          <option value="blue" style="background-color:blue;color:black">blue</option>
-          <option value="yellow" style="background-color:yellow;color:black">yellow</option>
-        </select>
+
       </div>
       <canvas id="canvas" width="660" height="580"></canvas>
-      <div class="buttons">
-        <div @click="logout()" class="button">ログアウト</div>
-        <div class="clearWrap">
-          <div @click="clearPlayer()" class="button clear">plalyer_clear</div>
-          <div @click="cleardrawPath()" class="button clear" id="paint">paint_clear</div>
+      <div class="rightElements">
+        <div id="logout-container">
+          <v-btn @click="logout()" class="button" id="logout">ログアウト</v-btn>
         </div>
-        <div @click="scrum()" class="button" id="paint">scrum</div>
-        <div @click="openModal()" class="button" id="paint">登録</div>
-        <div @click="customPlacement(positions)" class="button" id="paint">配置</div>
-        <!-- <div @click="testMove()" class="button" id="paint">testMove</div> -->
-        <template v-for="(position, index) in positions">
-          <div class="label" :key="`third-${index}`">
-            <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
-            <label :for="index" :id="index" :key="`label-${index}`">{{ position.name }}</label>
-            <div class="delete" :key="`first-${index}`" @click="deletePosition(position.name)">[×]</div>
+        <div class="buttons">
+          <div class="paint-wrap">
+            <div class="select-wrap">
+              <v-select
+                :items="lineWidths"
+                v-model="selectedLineWidth"
+                item-text="label"
+                item-value="value"
+                label="太さ"
+                dense
+                solo
+                return-object
+                class="select-box"
+              ></v-select>
+              <v-select
+                :items="colors"
+                v-model="selectedColor"
+                item-text="label"
+                item-value="value"
+                label="色"
+                dense
+                solo
+                return-object
+                class="select-box"
+              ></v-select>
+            </div>
+            <div class="paint-button-wrap">
+              <v-btn
+                @click="drawBack()"
+                rounded
+                class="button clear"
+              >戻る</v-btn>
+              <v-btn
+                @click="cleardrawPath()"
+                rounded
+                class="button clear"
+                id="paint"
+              >クリア</v-btn>
+            </div>
+            <!-- <select id="color">
+              <option value="white" style="background-color:white;color:black" selected>white</option>
+              <option value="red" style="background-color:red;color:black">red</option>
+              <option value="blue" style="background-color:blue;color:black">blue</option>
+              <option value="yellow" style="background-color:yellow;color:black">yellow</option>
+            </select> -->
           </div>
-        </template>
+          <!-- <div @click="scrum()" class="button" id="paint">scrum</div> -->
+          <div class="player-button-wrap">
+            <v-btn @click="openModal()" class="button" id="paint">登録</v-btn>
+            <v-btn @click="customPlacement(positions)" class="button" id="paint">配置</v-btn>
+            <v-btn
+              @click="clearPlayer()"
+              elevation="2"
+              class="button clear"
+            >クリア</v-btn>
+            <template v-for="(position, index) in positions">
+              <div class="label" :key="`third-${index}`">
+                <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
+                <label :for="index" :id="index" :key="`label-${index}`">{{ position.name }}</label>
+                <div class="delete" :key="`first-${index}`" @click="deletePosition(position.name)">[×]</div>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
     <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer">{{ player.number }}</div>
     <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
+    <div class="player points drawPlayer">S</div>
+    <div class="player points drawPlayer">R</div>
+    <div class="player points drawPlayer">M</div>
+    <div class="player points drawPlayer line-out">L</div>
     <img src="ball.png" class="player ball drawPlayer">
     <section
       v-if="modal"
@@ -68,7 +118,8 @@ export default {
       teams: [
         {name: 'my-team'},
         {name: 'opponent'},
-        {name: 'ball'}
+        {name: 'ball'},
+        {name: 'points'},
       ],
       // positions: [],
       inputPosition: '',
@@ -77,8 +128,24 @@ export default {
       mask: false,
       modal: false,
       drawPath: [],
+      drawPath2: [],
       count: 0,
       testPositions: [],
+      selectedColor: { label: '白', value: 'white' }, //初期値
+      colors: [
+        { label: '白', value: 'white' },
+        { label: '黒', value: 'black' },
+        { label: '赤', value: 'red' },
+        { label: '青', value: 'blue' },
+        { label: '黄', value: 'yellow' },
+      ],
+      selectedLineWidth: { label: '4px', value: 4 }, //初期値
+      lineWidths: [
+        { label: '2px', value: 2 },
+        { label: '4px', value: 4 },
+        { label: '6px', value: 6 },
+      ],
+      // colors: ['Foo', 'Bar', 'Fizz', 'Buzz'],
     }
   },
   watch: {
@@ -102,25 +169,26 @@ export default {
     // this.startDraw = this.startDraw.bind(this);
     let gX = 0;
     let gY = 0;
-    let gColor = 'white';
+    // let gColor = 'white';
+    // let gColor = this.selectedColor.value;
     const canvas = document.getElementById('canvas');
     //↓要素の左のwidth
     // console.log(canvas.getBoundingClientRect().left);
     const ctx = canvas.getContext('2d');
     // const drawPath = [];
     this.placement();
-    this.drawAgain(ctx);
+    this.drawAgain2(ctx);
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 3;
     canvas.addEventListener('mousedown', startDraw.bind(this), false);
     canvas.addEventListener('mousemove', Draw.bind(this), false);
     canvas.addEventListener('mouseup', endDraw.bind(this), false);
-    let s = document.getElementById('color');
-    s.addEventListener('change', changeColor, false);
+    // let s = document.getElementById('color');
+    // s.addEventListener('change', changeColor, false);
 
-    function changeColor(){
-      gColor = document.getElementById('color').value;
-    }
+    // function changeColor(){
+    //   gColor = this.selectedColor.value;
+    // }
     function startDraw(e){
       let players = document.getElementsByClassName('player');
       players.forEach(player => {
@@ -140,9 +208,9 @@ export default {
         let y = e.offsetY;
 
         // 線のスタイルを設定
-        con.lineWidth = 2;
+        con.lineWidth = this.selectedLineWidth.value;
         // 色設定
-        con.strokeStyle = gColor;
+        con.strokeStyle = this.selectedColor.value;
         // 描画開始
         con.beginPath();
         con.moveTo(gX, gY); con.lineTo(x, y);
@@ -153,7 +221,8 @@ export default {
           gy: gY,
           x: x,
           y: y,
-          color: gColor
+          color: this.selectedColor.value,
+          style: this.selectedLineWidth.value,
         }
         // 次の描画開始点
         gX = x;
@@ -168,14 +237,16 @@ export default {
         player.classList.add('drawPlayer');
       });
       this.flagDraw = false;
-      setdrawPath(this.drawPath);
+      this.drawPath2.push(this.drawPath.slice());
+      setdrawPath(this.drawPath2);
+      // console.log(this.drawPath2);
     }
 
     function setdrawPath(drawPath) {
       localStorage.setItem('drawPath', JSON.stringify(drawPath));
-      console.log(drawPath);
+      // console.log(drawPath);
     }
-
+    // console.log(this.teams);
     let teams = this.teams
 
     teams.forEach((team, i) => {
@@ -252,7 +323,7 @@ export default {
       this.players[0][11].x = this.players[0][11].x + 0.1;
       this.players[0][12].y = this.players[0][12].y - 0.1;
       this.players[0][12].x = this.players[0][12].x - 0.1;
-      console.log(this.count);
+      // console.log(this.count);
       this.rellocation();
       this.count = this.count + 1;
       if (this.count < 2000) {
@@ -310,6 +381,7 @@ export default {
       teams.forEach((team, i) => {
         let players = document.getElementsByClassName(team.name);
         players.forEach((player, index) => {
+          // console.log(this.players[i][index]);
           player.style.position = 'absolute';
           player.style.left = this.players[i][index].x + 'px';
           player.style.top = this.players[i][index].y + 'px';
@@ -322,7 +394,7 @@ export default {
       for (let j = 0; j < 2; j++) {
         let players = [];
         for (let i = 1; i <= 15; i++) {
-          let y_clone = 30 * i;
+          let y_clone = 14 + 30 * (i - 1);
           let player = {
             x: 50 * (j + 1),
             y: y_clone,
@@ -334,12 +406,30 @@ export default {
         this.players.push(players);
       }
       let ball = [{
-        x: 48,
-        y: 485,
+        x: 150,
+        y: 427,
         number: 0,
         zIndex: 310
       }];
       this.players.push(ball);
+      let points = [];
+      for (let i = 0; i < 3; i++) {
+        let point = {
+          x: 6 + i * 65,
+          y: 470,
+          number: i,
+          zIndex: 320 + i * 10
+        };
+        points.push(point)
+      }
+      let point = {
+        x: 6,
+        y: 535,
+        number: 3,
+        zIndex: 350
+      }
+      points.push(point)
+      this.players.push(points);
     },
     placement() {
       const clone_players = localStorage.getItem('players');
@@ -362,11 +452,41 @@ export default {
           ctx.moveTo(coordinates.gx, coordinates.gy);
           ctx.lineTo(coordinates.x, coordinates.y);
           ctx.closePath();
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 4;
           ctx.stroke();
           this.drawPath.push(coordinates);
         });
       }
+    },
+    drawAgain2(ctx) {
+      const clone_drawPaths = JSON.parse(localStorage.getItem('drawPath'));
+      if (clone_drawPaths) {
+        clone_drawPaths.forEach(clone_drawPath => {
+          clone_drawPath.forEach(coordinates => {
+            ctx.strokeStyle = coordinates.color;
+            ctx.beginPath();
+            ctx.moveTo(coordinates.gx, coordinates.gy);
+            ctx.lineTo(coordinates.x, coordinates.y);
+            ctx.closePath();
+            ctx.lineWidth = coordinates.style;
+            ctx.stroke();
+            this.drawPath.push(coordinates);
+          });
+        this.drawPath2.push(this.drawPath.slice());
+        });
+      }
+    },
+    drawBack() {
+      localStorage.removeItem('drawPath');
+      this.drawPath = [];
+      this.drawPath2.pop();
+      localStorage.setItem('drawPath', JSON.stringify(this.drawPath2));
+      this.drawPath2 = [];
+      this.resetDrawPath();
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      this.drawAgain2(ctx);
+      // console.log(this.drawPath2);
     },
     setDrawPath(drawPath) {
       localStorage.setItem('drawPath', JSON.stringify(drawPath));
@@ -374,6 +494,10 @@ export default {
     cleardrawPath() {
       localStorage.removeItem('drawPath');
       this.drawPath = [];
+      this.drawPath2 = [];
+      this.resetDrawPath();
+    },
+    resetDrawPath() {
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, 660, 580);
@@ -390,7 +514,7 @@ export default {
           // console.log(targetNumber, playersAll[j].style.zIndex);
         }
       }
-      players[index].style.zIndex = 310;
+      players[index].style.zIndex = 350;
     },
     clearPlayer() {
       this.players = [];
@@ -535,9 +659,9 @@ export default {
     /* cursor: grab; */
   }
   canvas {
-  background-color: rgb(12, 211, 12);
-  z-index: 5;
-}
+    background-color: rgb(12, 211, 12);
+    z-index: 5;
+  }
   #img {
     height: 100%;
     text-align: center;
@@ -580,6 +704,10 @@ export default {
     overflow: hidden;
   }
 
+  .button {
+    margin-left: 8px;
+  }
+
   .test {
     z-index: 1000;
     position: absolute;
@@ -602,6 +730,21 @@ export default {
     background: rgb(107, 107, 107);
     color: white;
   }
+  .points {
+    background: rgb(2, 53, 219);
+    color: white;
+    text-align: center;
+    font-size: 36px;
+    line-height: 60px;
+    height: 60px;
+    width: 60px;
+    text-shadow: .6px .6px .6px rgba(255, 255, 255, 0.66);
+    box-shadow: inset 0px 2.2px 0 rgba(255,255,255,0.3), 0 2.2px 2.2px rgba(0, 0, 0, 0.3);
+  }
+  .points:hover {
+    background: rgb(27, 63, 224);
+    color: white;
+  }
   .ball {
     /* background: rgb(161, 60, 60);
     color: white; */
@@ -613,8 +756,26 @@ export default {
     border-bottom-right-radius: 40px;
     background: none;
   }
+  .line-out {
+    width: 90px;
+    border-radius: 5px;
+    height: 40px;
+    line-height: 44px;
+  }
+  .rightElements {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
 
-  .button {
+#logout {
+
+}
+#logout-container {
+  display: flex;
+  justify-content: flex-end;
+}
+  /* .button {
     border: 1px solid #ccc;
     background: #f1e767;
     background: -webkit-gradient(linear, left top, left bottom, from(#fdfbfb), to(#ebedee));
@@ -631,14 +792,14 @@ export default {
     text-align: center;
     line-height: 30px;
     cursor: pointer;
-  }
+  } */
   .clearWrap {
     display: flex;
   }
-  #paint {
+  /* #paint {
     top: 100px;
     left: 1000px;
-  }
+  } */
 
   #mask {
   background: rgba(0, 0, 0, 0.4);
@@ -744,6 +905,20 @@ label {
   }
   .drawPlayer:active {
     cursor: grabbing;
+  }
+
+  .select-wrap {
+    display: flex;
+    margin-top: 30px;
+    margin-left: 8px;
+    height: 44px;
+    width: 200px;
+  }
+  .select-box {
+    width: 50px;
+  }
+  .player-button-wrap {
+    margin-top: 60px;
   }
 
 </style>
