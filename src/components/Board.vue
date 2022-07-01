@@ -1,66 +1,101 @@
 <template>
   <div id="app">
     <div id="container">
-      <div id="piece">
-
+      <div id="piece"></div>
+      <div id="board">
+        <canvas id="ground" width="660" height="580"></canvas>
+        <canvas id="canvas" width="660" height="580"></canvas>
       </div>
-      <canvas id="canvas" width="660" height="580"></canvas>
       <div class="rightElements">
         <div id="logout-container">
           <v-btn @click="logout()" class="button" id="logout">ログアウト</v-btn>
         </div>
         <div class="buttons">
-          <div class="paint-wrap">
-            <div class="select-wrap">
-              <v-select
-                :items="lineWidths"
-                v-model="selectedLineWidth"
-                item-text="label"
-                item-value="value"
-                label="太さ"
-                dense
-                solo
-                return-object
-                class="select-box"
-              ></v-select>
-              <v-select
-                :items="colors"
-                v-model="selectedColor"
-                item-text="label"
-                item-value="value"
-                label="色"
-                dense
-                solo
-                return-object
-                class="select-box"
-              ></v-select>
+          <div class="left-buttons">
+            <div class="paint-wrap">
+              <div class="select-wrap">
+                <v-select
+                  :items="lineWidths"
+                  v-model="selectedLineWidth"
+                  item-text="label"
+                  item-value="value"
+                  label="太さ"
+                  dense
+                  solo
+                  return-object
+                  class="select-box"
+                ></v-select>
+                <v-select
+                  :items="colors"
+                  v-model="selectedColor"
+                  item-text="label"
+                  item-value="value"
+                  label="色"
+                  dense
+                  solo
+                  return-object
+                  class="select-box"
+                ></v-select>
+              </div>
+              <div class="paint-button-wrap">
+                <!-- <v-btn
+                  @click="drawBack()"
+                  rounded
+                  class="button clear"
+                >戻る</v-btn> -->
+                <v-btn
+                  @click="cleardrawPath()"
+                  rounded
+                  class="button clear"
+                  id="paint"
+                >クリア</v-btn>
+              </div>
             </div>
-            <div class="paint-button-wrap">
-              <v-btn
-                @click="drawBack()"
-                rounded
-                class="button clear"
-              >戻る</v-btn>
-              <v-btn
-                @click="cleardrawPath()"
-                rounded
-                class="button clear"
-                id="paint"
-              >クリア</v-btn>
+            <div class="toggle_options">
+              <table>
+                <tr>
+                  <th>白線</th>
+                  <th>背番号</th>
+                </tr>
+                <tr>
+                  <td><v-select
+                    :items="lineBool"
+                    v-model="selectedLineBool"
+                    item-text="label"
+                    item-value="value"
+                    label="線"
+                    dense
+                    solo
+                    return-object
+                    class="select-box"
+                    v-on:change="changeGroundLine"
+                    ></v-select>
+                  </td>
+                  <td><v-select
+                    :items="numBool"
+                    v-model="selectedNumBool"
+                    item-text="label"
+                    item-value="value"
+                    label="背番号"
+                    dense
+                    solo
+                    return-object
+                    class="select-box"
+                    ></v-select>
+                  </td>
+                </tr>
+              </table>
             </div>
-            <!-- <select id="color">
-              <option value="white" style="background-color:white;color:black" selected>white</option>
-              <option value="red" style="background-color:red;color:black">red</option>
-              <option value="blue" style="background-color:blue;color:black">blue</option>
-              <option value="yellow" style="background-color:yellow;color:black">yellow</option>
-            </select> -->
           </div>
           <!-- <div @click="scrum()" class="button" id="paint">scrum</div> -->
           <div class="player-button-wrap">
-            <v-btn @click="openModal()" class="button" id="paint">登録</v-btn>
-            <v-btn @click="customPlacement(positions)" class="button" id="paint">配置</v-btn>
+            <!-- <v-btn @click="openModal()" class="button" id="paint">登録</v-btn> -->
+            <button @click="openModal()" class="button bt-samp78" id="paint">+</button>
+            <!-- <v-btn @click="customPlacement(positions)" class="button" id="paint">配置</v-btn> -->
+            <button @click="customPlacement(positions)" class="button bt-samp78" id="paint">▶</button>
             <v-btn
               @click="clearPlayer()"
+              rounded
               elevation="2"
               class="button clear"
             >クリア</v-btn>
@@ -75,13 +110,23 @@
         </div>
       </div>
     </div>
-    <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer">{{ player.number }}</div>
-    <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
+    <template v-if="selectedNumBool.value">
+      <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer">{{ player.number }}</div>
+      <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
+    </template>
+    <template v-else>
+      <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer"></div>
+      <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer"></div>
+    </template>
     <div class="player points drawPlayer">S</div>
     <div class="player points drawPlayer">R</div>
     <div class="player points drawPlayer">M</div>
     <div class="player points drawPlayer line-out">L</div>
     <img src="ball.png" class="player ball drawPlayer">
+    <!-- <div
+      class="test"
+      @mousedown="testDrag"
+    >T</div> -->
     <section
       v-if="modal"
       id="sendModal"
@@ -138,12 +183,23 @@ export default {
         { label: '赤', value: 'red' },
         { label: '青', value: 'blue' },
         { label: '黄', value: 'yellow' },
+        { label: '消しゴム', value: 'transparent' },
       ],
       selectedLineWidth: { label: '4px', value: 4 }, //初期値
       lineWidths: [
-        { label: '2px', value: 2 },
-        { label: '4px', value: 4 },
-        { label: '6px', value: 6 },
+        { label: '細', value: 2 },
+        { label: '中', value: 4 },
+        { label: '太', value: 6 },
+      ],
+      selectedNumBool: { label: 'あり', value: true },
+      numBool: [
+        { label: 'あり', value: true},
+        { label: 'なし', value: false},
+      ],
+      selectedLineBool: { label: 'あり', value: true },
+      lineBool: [
+        { label: 'あり', value: true},
+        { label: 'なし', value: false},
       ],
       // colors: ['Foo', 'Bar', 'Fizz', 'Buzz'],
     }
@@ -183,6 +239,7 @@ export default {
     canvas.addEventListener('mousedown', startDraw.bind(this), false);
     canvas.addEventListener('mousemove', Draw.bind(this), false);
     canvas.addEventListener('mouseup', endDraw.bind(this), false);
+    // canvas.addEventListener('mouseout', endDraw.bind(this), false);
     // let s = document.getElementById('color');
     // s.addEventListener('change', changeColor, false);
 
@@ -211,40 +268,59 @@ export default {
         con.lineWidth = this.selectedLineWidth.value;
         // 色設定
         con.strokeStyle = this.selectedColor.value;
-        // 描画開始
+        con.lineCap = 'round';
+        con.lineJoin = 'round';
+
+        if (this.selectedColor.value == 'transparent') {
+          con.globalCompositeOperation = 'destination-out';
+          con.lineWidth = this.selectedLineWidth.value * 3;
+          con.strokeStyle = 'white'
+
+        } else {
+          // 描画開始
+          con.globalCompositeOperation = 'source-over';
+        }
         con.beginPath();
-        con.moveTo(gX, gY); con.lineTo(x, y);
+        con.moveTo(gX, gY);
+        con.lineTo(x, y);
         con.closePath();
         con.stroke();
-        let coordinates = {
-          gx: gX,
-          gy: gY,
-          x: x,
-          y: y,
-          color: this.selectedColor.value,
-          style: this.selectedLineWidth.value,
-        }
-        // 次の描画開始点
+        // let coordinates = {
+        //   gx: gX,
+        //   gy: gY,
+        //   x: x,
+        //   y: y,
+        //   color: this.selectedColor.value,
+        //   style: this.selectedLineWidth.value,
+        // }
         gX = x;
         gY = y;
-        this.drawPath.push(coordinates);
+        // 次の描画開始点
+        // this.drawPath.push(coordinates);
+
       }
     }
     // 描画終了
     function endDraw(){
-      let players = document.getElementsByClassName('player');
-      players.forEach(player => {
-        player.classList.add('drawPlayer');
-      });
-      this.flagDraw = false;
-      this.drawPath2.push(this.drawPath.slice());
-      setdrawPath(this.drawPath2);
-      // console.log(this.drawPath2);
+      if (this.flagDraw == true){
+        let players = document.getElementsByClassName('player');
+        players.forEach(player => {
+          player.classList.add('drawPlayer');
+        });
+        this.flagDraw = false;
+        this.drawPath2.push(this.drawPath.slice());
+        // setdrawPath(this.drawPath2);
+        setdrawPath();
+        // console.log(this.drawPath2);
+      }
     }
 
-    function setdrawPath(drawPath) {
-      localStorage.setItem('drawPath', JSON.stringify(drawPath));
+    function setdrawPath() {
+      // localStorage.setItem('drawPath', JSON.stringify(drawPath));
       // console.log(drawPath);
+      const canvas = document.getElementById('canvas');
+      let data = canvas.toDataURL();
+      localStorage.setItem('drawPath', data);
     }
     // console.log(this.teams);
     let teams = this.teams
@@ -259,6 +335,7 @@ export default {
         player.addEventListener('mousedown', event => {
 
           let shiftX = event.clientX - player.getBoundingClientRect().left;
+          console.log(event.clientX, player.getBoundingClientRect().left)
           let shiftY = event.clientY - player.getBoundingClientRect().top;
 
           // player.style.zIndex = 1000;
@@ -294,6 +371,13 @@ export default {
 
   },
   methods: {
+    testDrag(event) {
+      // let shiftX = event.clientX - event.getBoundingClientRect().left;
+      // let shiftY = event.clientY - event.getBoundingClientRect().top;
+      // this.moveAt(event.pageX, event.pageY, shiftX, shiftY);
+      console.log(event.style)
+    },
+
     async testFetch() {
       try {
         const response = await firebase.firestore().collection('users').doc(this.uid).get();
@@ -459,21 +543,34 @@ export default {
       }
     },
     drawAgain2(ctx) {
-      const clone_drawPaths = JSON.parse(localStorage.getItem('drawPath'));
-      if (clone_drawPaths) {
-        clone_drawPaths.forEach(clone_drawPath => {
-          clone_drawPath.forEach(coordinates => {
-            ctx.strokeStyle = coordinates.color;
-            ctx.beginPath();
-            ctx.moveTo(coordinates.gx, coordinates.gy);
-            ctx.lineTo(coordinates.x, coordinates.y);
-            ctx.closePath();
-            ctx.lineWidth = coordinates.style;
-            ctx.stroke();
-            this.drawPath.push(coordinates);
-          });
-        this.drawPath2.push(this.drawPath.slice());
-        });
+      // const clone_drawPaths = JSON.parse(localStorage.getItem('drawPath'));
+      // if (clone_drawPaths) {
+      //   clone_drawPaths.forEach(clone_drawPath => {
+      //     clone_drawPath.forEach(coordinates => {
+      //       if (coordinates.color == 'transparent') {
+      //         ctx.globalCompositeOperation = 'destination-out';
+      //         ctx.strokeStyle = 'white';
+      //         ctx.lineWidth = coordinates.style * 3;
+      //       } else {
+      //         ctx.globalCompositeOperation = 'source-over';
+      //         ctx.strokeStyle = coordinates.color;
+      //         ctx.lineWidth = coordinates.style;
+      //       }
+      //       ctx.beginPath();
+      //       ctx.moveTo(coordinates.gx, coordinates.gy);
+      //       ctx.lineTo(coordinates.x, coordinates.y);
+      //       ctx.closePath();
+      //       ctx.stroke();
+      //       this.drawPath.push(coordinates);
+      //     });
+      //   this.drawPath2.push(this.drawPath.slice());
+      //   });
+      // }
+      let data = localStorage.getItem('drawPath')
+      let img = new Image();
+      img.src = data;
+      img.onload = function(){
+        ctx.drawImage(img, 0, 0, 660, 580);
       }
     },
     drawBack() {
@@ -489,6 +586,7 @@ export default {
       // console.log(this.drawPath2);
     },
     setDrawPath(drawPath) {
+      localStorage.removeItem('drawPath');
       localStorage.setItem('drawPath', JSON.stringify(drawPath));
     },
     cleardrawPath() {
@@ -501,7 +599,16 @@ export default {
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, 660, 580);
-      this.drawGround();
+      // this.drawGround();
+    },
+    changeGroundLine() {
+      const canvas = document.getElementById('ground');
+      const ctx = canvas.getContext('2d');
+      if (this.selectedLineBool.value == true) {
+        this.drawGround();
+      } else {
+        ctx.clearRect(0, 0, 660, 580);
+      }
     },
     setZIndex(players, i, index) {
       let playersAll = document.getElementsByClassName('player');
@@ -567,7 +674,7 @@ export default {
       }
     },
     drawGround() {
-      const canvas = document.getElementById('canvas');
+      const canvas = document.getElementById('ground');
       const ctx = canvas.getContext('2d');
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 3;
@@ -658,9 +765,31 @@ export default {
     padding: 0;
     /* cursor: grab; */
   }
+  #container {
+  display: flex;
+  user-select: none;
+  margin: 5px;
+  }
   canvas {
     background-color: rgb(12, 211, 12);
+    /* background-color: transparent; */
     z-index: 5;
+    box-shadow:8px 8px 0px rgba(0,0,0,.1);
+    cursor: crosshair;
+  }
+  #board {
+    position: relative;
+    width: 750px;
+    height: 580px;
+  }
+  #ground {
+    position: absolute;
+    z-index: 10;
+  }
+  #canvas {
+    position: absolute;
+    z-index: 20;
+    background-color: transparent;
   }
   #img {
     height: 100%;
@@ -680,17 +809,7 @@ export default {
     margin-top: 10px;
     margin-left: 20px;
   } */
-  #container {
-    display: flex;
-    user-select: none;
-  }
-  #ground {
-    height: 100%;
-    width: 380px;
-    align-content: center;
-    user-select: none;
-    -webkit-user-drag: none;
-  }
+
   .player , .test {
     text-align: center;
     font-size: 12px;
@@ -706,12 +825,13 @@ export default {
 
   .button {
     margin-left: 8px;
+    margin-bottom: 8px;
   }
 
   .test {
     z-index: 1000;
     position: absolute;
-    left: 1000px;
+    left: 200px;
     top: 200px;
     background: #000;
   }
@@ -765,7 +885,7 @@ export default {
   .rightElements {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    margin-left: 10px;
   }
 
 #logout {
@@ -796,10 +916,6 @@ export default {
   .clearWrap {
     display: flex;
   }
-  /* #paint {
-    top: 100px;
-    left: 1000px;
-  } */
 
   #mask {
   background: rgba(0, 0, 0, 0.4);
@@ -879,8 +995,19 @@ export default {
 
 .label {
   margin: 10px 20px;
+  line-height: 20px;
   height: 20px;
   display: flex;
+}
+
+.label > label {
+  margin-left: 5px;
+}
+
+.label > input {
+  line-height: 20px;
+  height: 20px;
+  align-items: center;
 }
 
 .delete {
@@ -901,24 +1028,102 @@ label {
 }
 
 .drawPlayer:hover {
-    cursor: grab;
-  }
-  .drawPlayer:active {
-    cursor: grabbing;
-  }
+  cursor: grab;
+}
+.drawPlayer:active {
+  cursor: grabbing;
+}
 
-  .select-wrap {
-    display: flex;
-    margin-top: 30px;
-    margin-left: 8px;
-    height: 44px;
-    width: 200px;
-  }
-  .select-box {
-    width: 50px;
-  }
-  .player-button-wrap {
-    margin-top: 60px;
-  }
+.paint-wrap{
+  /* background: red; */
+}
+
+.select-wrap {
+  display: flex;
+  margin-top: 30px;
+  height: 44px;
+  width: 200px;
+}
+.left-buttons {
+  display: flex;
+  flex-direction: column;
+  /* background: skyblue; */
+  width: 100%;
+  padding-left: 8px;
+}
+.buttons {
+  /* background: pink; */
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.select-box {
+  width: 100px;
+  text-align: center;
+}
+.player-button-wrap {
+  margin-top: 30px;
+  margin-left: 8px;
+  width: 100%;
+  min-width: 180px;
+}
+
+.toggle_options {
+  margin-top: 30px;
+  display: flex;
+}
+table {
+  width: 100%;
+}
+
+th {
+  text-align: center;
+}
+
+.bt-samp78{
+  display: inline-block;
+  position: relative;
+  height: 30px;
+  width: 30px;
+  padding-left:1px;
+  text-decoration: none;
+  line-height: 30px;
+  text-align: center;
+  color: #b9b4b2;
+  font-size: 18px;
+  text-shadow: 0px 1px 0px #fafafa;
+  background: #e4e3e2;
+  background: -webkit-gradient(linear, left top, left bottom, from(#eaeaea), to(#d3cecd));
+  background: -moz-linear-gradient(top,  #eaeaea,  #d3cecd);
+  background: -o-linear-gradient(top,  #eaeaea,  #d3cecd);
+  background: -ms-linear-gradient(top,  #eaeaea,  #d3cecd);
+  background: linear-gradient(top,  #eaeaea,  #d3cecd);
+  border: 1px solid #dcd9d8;
+  border-bottom: 1px solid #c1c1bd;
+  border-radius: 50%;
+  -webkit-box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
+  -moz-box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
+  box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
+  text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.7);
+}
+.bt-samp78:hover { /* マウスオーバー時 */
+  background: #eaeaea;
+  background: -webkit-gradient(linear, left top, left bottom, from(#eaeaea), to(#e4e3e2));
+  background: -moz-linear-gradient(top,  #eaeaea,  #e4e3e2);
+  background: -o-linear-gradient(top,  #eaeaea,  #e4e3e2);
+  background: -ms-linear-gradient(top,  #eaeaea,  #e4e3e2);
+  background: linear-gradient(top,  #eaeaea,  #e4e3e2);
+  -webkit-box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
+  -moz-box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
+  box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
+  border-bottom:none;
+}
+.bt-samp78:active { /* クリック時 */
+  -ms-transform: translateY(2px);
+  -webkit-transform: translateY(2px);
+  transform: translateY(2px);
+}
 
 </style>
