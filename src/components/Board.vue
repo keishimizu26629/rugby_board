@@ -3,8 +3,14 @@
     <div id="container">
       <div id="piece"></div>
       <div id="board">
+        <!-- <canvas id="ground" width="660" height="580"></canvas>
+        <canvas id="canvas" width="660" height="580"></canvas> -->
         <canvas id="ground" width="660" height="580"></canvas>
-        <canvas id="canvas" width="660" height="580"></canvas>
+        <canvas
+          id="canvas"
+          width="660"
+          height="580"
+        ></canvas>
       </div>
       <div class="rightElements">
         <div id="logout-container">
@@ -38,11 +44,6 @@
                 ></v-select>
               </div>
               <div class="paint-button-wrap">
-                <!-- <v-btn
-                  @click="drawBack()"
-                  rounded
-                  class="button clear"
-                >戻る</v-btn> -->
                 <v-btn
                   @click="cleardrawPath()"
                   rounded
@@ -111,7 +112,12 @@
       </div>
     </div>
     <template v-if="selectedNumBool.value">
-      <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer">{{ player.number }}</div>
+      <div
+      v-for="player in players[0]"
+      :key="player.id"
+      class="player my-team drawPlayer"
+      @mousedown="testDrag"
+    >{{ player.number }}</div>
       <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
     </template>
     <template v-else>
@@ -166,14 +172,22 @@ export default {
         {name: 'ball'},
         {name: 'points'},
       ],
-      // positions: [],
-      inputPosition: '',
+      gX: 0,
+      gY: 0,
+      canvas: null,
+      context: null,
+      isDraw: false,
       selectPosition: '',
-      flagDraw: false,
+      inputPosition: '',
       mask: false,
       modal: false,
+      isMove: false,
+      shiftX: 0,
+      shiftY: 0,
       drawPath: [],
       drawPath2: [],
+      selectedPlayers: [],
+      onPressControlKey: false,
       count: 0,
       testPositions: [],
       selectedColor: { label: '白', value: 'white' }, //初期値
@@ -201,7 +215,6 @@ export default {
         { label: 'あり', value: true},
         { label: 'なし', value: false},
       ],
-      // colors: ['Foo', 'Bar', 'Fizz', 'Buzz'],
     }
   },
   watch: {
@@ -219,110 +232,35 @@ export default {
   },
   created() {
     this.createPlayers();
-    // this.testFetch();
   },
   mounted() {
-    // this.startDraw = this.startDraw.bind(this);
-    let gX = 0;
-    let gY = 0;
-    // let gColor = 'white';
-    // let gColor = this.selectedColor.value;
-    const canvas = document.getElementById('canvas');
-    //↓要素の左のwidth
-    // console.log(canvas.getBoundingClientRect().left);
-    const ctx = canvas.getContext('2d');
-    // const drawPath = [];
+    this.canvas = document.querySelector('#canvas')
+    this.context = this.canvas.getContext('2d')
+
+    window.addEventListener('mousedown', e => {
+      this.drawStart(e);
+    });
+    window.addEventListener('mousemove', e => {
+      this.draw(e);
+    });
+    window.addEventListener('mouseup', () => {
+      this.drawEnd();
+    });
+
     this.placement();
-    this.drawAgain2(ctx);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    canvas.addEventListener('mousedown', startDraw.bind(this), false);
-    canvas.addEventListener('mousemove', Draw.bind(this), false);
-    canvas.addEventListener('mouseup', endDraw.bind(this), false);
-    // canvas.addEventListener('mouseout', endDraw.bind(this), false);
-    // let s = document.getElementById('color');
-    // s.addEventListener('change', changeColor, false);
+    this.drawAgain(this.context);
 
-    // function changeColor(){
-    //   gColor = this.selectedColor.value;
-    // }
-    function startDraw(e){
-      let players = document.getElementsByClassName('player');
-      players.forEach(player => {
-        player.classList.remove('drawPlayer');
-      });
-      this.flagDraw = true;
-      gX = e.offsetX;
-      gY = e.offsetY;
-    }
-
-    function Draw(e){
-      if (this.flagDraw == true){
-        const canvas = document.getElementById('canvas');
-        const con = canvas.getContext('2d');
-
-        let x = e.offsetX;
-        let y = e.offsetY;
-
-        // 線のスタイルを設定
-        con.lineWidth = this.selectedLineWidth.value;
-        // 色設定
-        con.strokeStyle = this.selectedColor.value;
-        con.lineCap = 'round';
-        con.lineJoin = 'round';
-
-        if (this.selectedColor.value == 'transparent') {
-          con.globalCompositeOperation = 'destination-out';
-          con.lineWidth = this.selectedLineWidth.value * 3;
-          con.strokeStyle = 'white'
-
-        } else {
-          // 描画開始
-          con.globalCompositeOperation = 'source-over';
-        }
-        con.beginPath();
-        con.moveTo(gX, gY);
-        con.lineTo(x, y);
-        con.closePath();
-        con.stroke();
-        // let coordinates = {
-        //   gx: gX,
-        //   gy: gY,
-        //   x: x,
-        //   y: y,
-        //   color: this.selectedColor.value,
-        //   style: this.selectedLineWidth.value,
-        // }
-        gX = x;
-        gY = y;
-        // 次の描画開始点
-        // this.drawPath.push(coordinates);
-
+    window.addEventListener('keydown', e => {
+      if(e.key == 'Control') {
+        this.onPressControlKey = true
       }
-    }
-    // 描画終了
-    function endDraw(){
-      if (this.flagDraw == true){
-        let players = document.getElementsByClassName('player');
-        players.forEach(player => {
-          player.classList.add('drawPlayer');
-        });
-        this.flagDraw = false;
-        this.drawPath2.push(this.drawPath.slice());
-        // setdrawPath(this.drawPath2);
-        setdrawPath();
-        // console.log(this.drawPath2);
+    });
+    window.addEventListener('keyup', e => {
+      if(e.key == 'Control') {
+        this.onPressControlKey = false
       }
-    }
+    });
 
-    function setdrawPath() {
-      // localStorage.setItem('drawPath', JSON.stringify(drawPath));
-      // console.log(drawPath);
-      const canvas = document.getElementById('canvas');
-      let data = canvas.toDataURL();
-      localStorage.setItem('drawPath', data);
-    }
-    // console.log(this.teams);
     let teams = this.teams
 
     teams.forEach((team, i) => {
@@ -333,19 +271,15 @@ export default {
         player.style.top = this.players[i][index].y + 'px';
         player.style.zIndex = this.players[i][index].zIndex;
         player.addEventListener('mousedown', event => {
-
+          console.log(player.getBoundingClientRect())
           let shiftX = event.clientX - player.getBoundingClientRect().left;
-          console.log(event.clientX, player.getBoundingClientRect().left)
           let shiftY = event.clientY - player.getBoundingClientRect().top;
 
-          // player.style.zIndex = 1000;
           this.setZIndex(players, i, index);
 
           moveAt(event.pageX, event.pageY, index);
 
-          // ボールを（pageX、pageY）座標の中心に置く
           function moveAt(pageX, pageY) {
-            // this.test1();
             player.style.left = pageX - shiftX + 'px';
             player.style.top = pageY - shiftY + 'px';
           }
@@ -353,10 +287,8 @@ export default {
             moveAt(event.pageX, event.pageY);
           }
 
-          // (3) mousemove でボールを移動する
           document.addEventListener('mousemove', onMouseMove);
 
-          // (4) ボールをドロップする。不要なハンドラを削除する
           player.addEventListener('mouseup', e => {
             document.removeEventListener('mousemove', onMouseMove);
             this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
@@ -366,16 +298,67 @@ export default {
           return false;
         };
       });
-
     });
-
   },
+
   methods: {
-    testDrag(event) {
-      // let shiftX = event.clientX - event.getBoundingClientRect().left;
-      // let shiftY = event.clientY - event.getBoundingClientRect().top;
-      // this.moveAt(event.pageX, event.pageY, shiftX, shiftY);
-      console.log(event.style)
+    draw(e) {
+      // let x = e.offsetX;
+      // let y = e.offsetY;
+      let x = e.layerX;
+      let y = e.layerY;
+      let canvasClientRect = this.canvas.getBoundingClientRect();
+      if(!this.isDraw) {
+        return;
+      }
+      if(e.clientX < canvasClientRect.left || e.clientX > canvasClientRect.right
+        || e.clientY < canvasClientRect.top || e.clientY > canvasClientRect.bottom) {
+        this.gX = x;
+        this.gY = y;
+        return;
+      }
+      this.context.lineWidth = this.selectedLineWidth.value;
+      this.context.strokeStyle = this.selectedColor.value;
+      if (this.selectedColor.value == 'transparent') {
+        this.context.globalCompositeOperation = 'destination-out';
+        this.context.lineWidth = this.selectedLineWidth.value * 3;
+        this.context.strokeStyle = 'white'
+      } else {
+        this.context.globalCompositeOperation = 'source-over';
+      }
+      this.context.lineCap = 'round';
+      this.context.lineJoin = 'round';
+      this.context.beginPath();
+      this.context.moveTo(this.gX, this.gY);
+      this.context.lineTo(x, y);
+      this.context.stroke();
+      this.gX = x;
+      this.gY = y;
+    },
+    drawStart(e) {
+      let players = document.getElementsByClassName('player');
+      players.forEach(player => {
+        player.classList.remove('drawPlayer');
+      });
+      this.isDraw = true;
+      // this.gX = e.offsetX;
+      // this.gY = e.offsetY;
+      this.gX = e.layerX;
+      this.gY = e.layerY;
+    },
+    drawEnd() {
+      this.context.closePath();
+      this.isDraw = false;
+      let players = document.getElementsByClassName('player');
+        players.forEach(player => {
+          player.classList.add('drawPlayer');
+        });
+      const canvas = this.canvas;
+      let data = canvas.toDataURL();
+      localStorage.setItem('drawPath', data);
+    },
+    testDrag(e) {
+      console.log(e)
     },
 
     async testFetch() {
@@ -528,44 +511,6 @@ export default {
       localStorage.setItem('players', JSON.stringify(this.players));
     },
     drawAgain(ctx) {
-      const clone_drawPath = JSON.parse(localStorage.getItem('drawPath'));
-      if (clone_drawPath) {
-        clone_drawPath.forEach(coordinates => {
-          ctx.strokeStyle = coordinates.color;
-          ctx.beginPath();
-          ctx.moveTo(coordinates.gx, coordinates.gy);
-          ctx.lineTo(coordinates.x, coordinates.y);
-          ctx.closePath();
-          ctx.lineWidth = 4;
-          ctx.stroke();
-          this.drawPath.push(coordinates);
-        });
-      }
-    },
-    drawAgain2(ctx) {
-      // const clone_drawPaths = JSON.parse(localStorage.getItem('drawPath'));
-      // if (clone_drawPaths) {
-      //   clone_drawPaths.forEach(clone_drawPath => {
-      //     clone_drawPath.forEach(coordinates => {
-      //       if (coordinates.color == 'transparent') {
-      //         ctx.globalCompositeOperation = 'destination-out';
-      //         ctx.strokeStyle = 'white';
-      //         ctx.lineWidth = coordinates.style * 3;
-      //       } else {
-      //         ctx.globalCompositeOperation = 'source-over';
-      //         ctx.strokeStyle = coordinates.color;
-      //         ctx.lineWidth = coordinates.style;
-      //       }
-      //       ctx.beginPath();
-      //       ctx.moveTo(coordinates.gx, coordinates.gy);
-      //       ctx.lineTo(coordinates.x, coordinates.y);
-      //       ctx.closePath();
-      //       ctx.stroke();
-      //       this.drawPath.push(coordinates);
-      //     });
-      //   this.drawPath2.push(this.drawPath.slice());
-      //   });
-      // }
       let data = localStorage.getItem('drawPath')
       let img = new Image();
       img.src = data;
@@ -582,8 +527,7 @@ export default {
       this.resetDrawPath();
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-      this.drawAgain2(ctx);
-      // console.log(this.drawPath2);
+      this.drawAgain(ctx);
     },
     setDrawPath(drawPath) {
       localStorage.removeItem('drawPath');
@@ -774,7 +718,6 @@ export default {
     background-color: rgb(12, 211, 12);
     /* background-color: transparent; */
     z-index: 5;
-    box-shadow:8px 8px 0px rgba(0,0,0,.1);
     cursor: crosshair;
   }
   #board {
@@ -983,7 +926,7 @@ export default {
 .close, .register {
   font-size: 16px;
   color: #fff;
-  background: rgb(248, 109, 29);
+  background: rgb(22, 244, 192);
   height: 30px;
   width: 50px;
   line-height: 30px;
