@@ -3,7 +3,6 @@ import Router from 'vue-router';
 import Board from './components/Board.vue';
 import Login from './components/Login.vue';
 import Register from './components/Register.vue';
-// import store from './store';
 import firebase from 'firebase';
 
 Vue.use(Router);

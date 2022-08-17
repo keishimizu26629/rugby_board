@@ -271,6 +271,8 @@ export default {
         player.style.top = this.players[i][index].y + 'px';
         player.style.zIndex = this.players[i][index].zIndex;
         player.addEventListener('mousedown', event => {
+          this.isMove = true;
+          // event.classList.add('isMove');
           console.log(player.getBoundingClientRect())
           let shiftX = event.clientX - player.getBoundingClientRect().left;
           let shiftY = event.clientY - player.getBoundingClientRect().top;
@@ -290,6 +292,8 @@ export default {
           document.addEventListener('mousemove', onMouseMove);
 
           player.addEventListener('mouseup', e => {
+            this.isMove = false;
+            // e.classList.remove('isMove');
             document.removeEventListener('mousemove', onMouseMove);
             this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
           });
@@ -340,6 +344,9 @@ export default {
       players.forEach(player => {
         player.classList.remove('drawPlayer');
       });
+      if(this.isMove) {
+        return;
+      }
       this.isDraw = true;
       // this.gX = e.offsetX;
       // this.gY = e.offsetY;
@@ -974,6 +981,10 @@ label {
   cursor: grab;
 }
 .drawPlayer:active {
+  cursor: grabbing;
+}
+
+.isMove {
   cursor: grabbing;
 }
 
