@@ -237,13 +237,22 @@ export default {
     this.canvas = document.querySelector('#canvas')
     this.context = this.canvas.getContext('2d')
 
-    window.addEventListener('mousedown', e => {
+    // window.addEventListener('mousedown', e => {
+    //   this.drawStart(e);
+    // });
+    // window.addEventListener('mousemove', e => {
+    //   this.draw(e);
+    // });
+    // window.addEventListener('mouseup', () => {
+    //   this.drawEnd();
+    // });
+    this.canvas.addEventListener('mousedown', e => {
       this.drawStart(e);
     });
-    window.addEventListener('mousemove', e => {
+    this.canvas.addEventListener('mousemove', e => {
       this.draw(e);
     });
-    window.addEventListener('mouseup', () => {
+    this.canvas.addEventListener('mouseup', () => {
       this.drawEnd();
     });
 
@@ -311,16 +320,16 @@ export default {
       // let y = e.offsetY;
       let x = e.layerX;
       let y = e.layerY;
-      let canvasClientRect = this.canvas.getBoundingClientRect();
+      // let canvasClientRect = this.canvas.getBoundingClientRect();
       if(!this.isDraw) {
         return;
       }
-      if(e.clientX < canvasClientRect.left || e.clientX > canvasClientRect.right
-        || e.clientY < canvasClientRect.top || e.clientY > canvasClientRect.bottom) {
-        this.gX = x;
-        this.gY = y;
-        return;
-      }
+      // if(e.clientX < canvasClientRect.left || e.clientX > canvasClientRect.right
+      //   || e.clientY < canvasClientRect.top || e.clientY > canvasClientRect.bottom) {
+      //   this.gX = x;
+      //   this.gY = y;
+      //   return;
+      // }
       this.context.lineWidth = this.selectedLineWidth.value;
       this.context.strokeStyle = this.selectedColor.value;
       if (this.selectedColor.value == 'transparent') {

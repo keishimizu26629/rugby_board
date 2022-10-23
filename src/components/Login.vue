@@ -14,6 +14,8 @@
     </div>
 
     <div id="loginError">{{ loginError }}</div>
+
+    <div class="guestsLogin" @click="guestsLogin">ゲストとして使用する</div>
     <!-- <div
       class="swich"
       @click="toRegister"
@@ -46,12 +48,11 @@ export default {
     }
   },
   methods: {
-    // testLogin() {
-    //   this.$store.dispatch('testLogin', {
-    //     email: this.userAccountData.mailAddress,
-    //     password: this.userAccountData.password
-    //   });
-    // },
+    guestsLogin() {
+      this.userAccountData.mailAddress = 'test@gmail.com';
+      this.userAccountData.password = 'testtest';
+      this.login();
+    },
     login() {
       this.$store.dispatch('login', {
         email: this.userAccountData.mailAddress,
@@ -212,6 +213,13 @@ h6 {
 .google {
   background:#db4a39;
   box-shadow:0px 3px 0px #b93f31;
+}
+
+.guestsLogin {
+  margin: 0 auto;
+  text-align: center;
+  color: blue;
+  cursor: pointer;
 }
 
 </style>
