@@ -12,6 +12,16 @@
           height="580"
         ></canvas>
       </div>
+      <div
+        v-for="marker in markers"
+        :key="marker.index"
+        :style="{left: convertPx(marker.x), top: convertPx(marker.y)}"
+        class="marker"
+        @mousedown="touchstart($event, marker)"
+        @mouseup="touchend()"
+        ref="element"
+      >
+      </div>
       <div class="rightElements">
         <div id="logout-container">
           <v-btn @click="logout()" class="button" id="logout">ログアウト</v-btn>
@@ -19,6 +29,7 @@
         <div class="buttons">
           <div class="left-buttons">
             <div class="paint-wrap">
+              <div>ペイント</div>
               <div class="select-wrap">
                 <v-select
                   :items="lineWidths"
@@ -86,6 +97,25 @@
                   </td>
                 </tr>
               </table>
+            </div>
+            <div class="toggle_options">
+              <div>
+                <div>
+                  マーカー
+                </div>
+                <div>
+                  <v-btn
+                    @click="addSpot()"
+                    elevation="2"
+                    class="button add-btn"
+                  >追加</v-btn>
+                  <v-btn
+                    @click="removeMarker()"
+                    elevation="2"
+                    class="button add-btn"
+                  >削除</v-btn>
+                </div>
+              </div>
             </div>
           </div>
           <!-- <div @click="scrum()" class="button" id="paint">scrum</div> -->
@@ -215,6 +245,15 @@ export default {
         { label: 'あり', value: true},
         { label: 'なし', value: false},
       ],
+      markers: [],
+      obj_marker: {
+        x: 100,
+        y: 100,
+        index: 0,
+      },
+      ePageX: null,
+      ePageY: null,
+      moveMarker: null,
     }
   },
   watch: {
@@ -229,6 +268,11 @@ export default {
     uid() {
       return this.$store.getters.loginUser.uid;
     },
+    convertPx() {
+      return (num) => {
+        return num + 'px'
+      }
+    },
   },
   created() {
     this.createPlayers();
@@ -240,9 +284,10 @@ export default {
     // window.addEventListener('mousedown', e => {
     //   this.drawStart(e);
     // });
-    // window.addEventListener('mousemove', e => {
-    //   this.draw(e);
-    // });
+    window.addEventListener('mousemove', e => {
+      // this.draw(e);
+      this.moveAtMarker(e);
+    });
     // window.addEventListener('mouseup', () => {
     //   this.drawEnd();
     // });
@@ -633,6 +678,35 @@ export default {
         // console.log(name);
       }
     },
+    addSpot() {
+      this.markers.push(Object.assign({}, this.obj_marker));
+      let markers_length = this.markers.length;
+      this.markers[markers_length-1].x += (10 * markers_length);
+      this.markers[markers_length-1].y += (10 * markers_length);
+      this.markers[markers_length-1].index = markers_length-1;
+      console.log(this.markers);
+    },
+    removeMarker() {
+      this.markers.pop();
+    },
+    touchstart(event, marker) {
+      this.isMove = true;
+      this.moveMarker = marker;
+      this.shiftX = event.clientX - this.$refs.element[marker.index].getBoundingClientRect().left;
+      this.shiftY = event.clientY - this.$refs.element[marker.index].getBoundingClientRect().top;
+      console.log(event, marker);
+    },
+    moveAtMarker(event) {
+      if(!this.isMove) {
+        return
+      }
+      this.moveMarker.x = event.pageX - this.shiftX;
+      this.moveMarker.y = event.pageY - this.shiftY;
+    },
+    touchend() {
+      this.isMove = false;
+      this.moveMarker = null;
+    },
     drawGround() {
       const canvas = document.getElementById('ground');
       const ctx = canvas.getContext('2d');
@@ -723,6 +797,7 @@ export default {
     /* height: 100%; */
     margin: 0;
     padding: 0;
+    background-color: red
     /* cursor: grab; */
   }
   #container {
@@ -730,11 +805,9 @@ export default {
   user-select: none;
   margin: 5px;
   }
-  canvas {
-    background-color: rgb(12, 211, 12);
-    /* background-color: transparent; */
-    z-index: 5;
-    cursor: crosshair;
+  .chart-wrapper {
+    width: 95vh;
+    margin: auto;
   }
   #board {
     position: relative;
@@ -744,11 +817,15 @@ export default {
   #ground {
     position: absolute;
     z-index: 10;
+    background-color: rgb(12, 211, 12);
+    /* background-color: transparent; */
+    z-index: 5;
   }
   #canvas {
     position: absolute;
     z-index: 20;
     background-color: transparent;
+    cursor: crosshair;
   }
   #img {
     height: 100%;
@@ -769,7 +846,7 @@ export default {
     margin-left: 20px;
   } */
 
-  .player , .test {
+  .player {
     text-align: center;
     font-size: 12px;
     line-height: 24px;
@@ -1003,7 +1080,6 @@ label {
 
 .select-wrap {
   display: flex;
-  margin-top: 30px;
   height: 44px;
   width: 200px;
 }
@@ -1087,6 +1163,26 @@ th {
   -ms-transform: translateY(2px);
   -webkit-transform: translateY(2px);
   transform: translateY(2px);
+}
+.marker {
+  z-index: 1000;
+  text-align: center;
+  position: absolute;
+  font-size: 12px;
+  line-height: 20px;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  user-select: none;
+  background: yellow;
+  box-shadow: inset 0px 1.5px 0 rgba(255,255,255,0.3), 0 1.5px 1.5px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.marker:hover {
+  cursor: grab;
+}
+.marker:active {
+  cursor: grabbing;
 }
 
 </style>
