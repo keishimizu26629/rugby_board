@@ -130,13 +130,18 @@
               elevation="2"
               class="button clear"
             >クリア</v-btn>
-            <template v-for="(position, index) in positions">
-              <div class="label" :key="`third-${index}`">
-                <input type="radio" :id="index" v-model="selectPosition" name="selectPosition" :value="position.name" :key="`second-${index}`">
-                <label :for="index" :id="index" :key="`label-${index}`">{{ position.name }}</label>
-                <div class="delete" :key="`first-${index}`" @click="deletePosition(position.name)">[×]</div>
-              </div>
-            </template>
+            <div v-for="(position, index) in positions" :key="`position-${index}`">
+            <label class="label">
+              <input type="radio"
+                    :id="`position-${index}`"
+                    v-model="selectPosition"
+                    name="selectPosition"
+                    :value="position.name">
+              <span class="custom-radio"></span>
+              <span class="label-text">{{ position.name }}</span>
+              <span class="delete" @click.stop="deletePosition(position.name)">[×]</span>
+            </label>
+          </div>
           </div>
         </div>
       </div>
@@ -163,29 +168,17 @@
       class="test"
       @mousedown="testDrag"
     >T</div> -->
-    <section
-      v-if="modal"
-      id="sendModal"
-      class="modal"
-    >
+    <section v-if="modal" id="sendModal" class="modal">
       <div class="modalBody">
         <p>配置の名前を入力してください。</p>
         <input type="text" v-model="inputPosition">
-        <div id=sendError></div>
+        <div id="sendError"></div>
       </div>
       <div class="modalFootter">
-        <div
-          class="register"
-          @click="testPost"
-        >登録</div>
+        <div class="register" @click="testPost">登録</div>
       </div>
     </section>
-    <div
-      v-if="mask"
-      id="mask"
-      class="hidden"
-      @click="closeModal"
-    ></div>
+    <div v-if="modal" id="mask" @click="closeModal"></div>
   </div>
 </template>
 
@@ -284,10 +277,7 @@ export default {
     // window.addEventListener('mousedown', e => {
     //   this.drawStart(e);
     // });
-    window.addEventListener('mousemove', e => {
-      // this.draw(e);
-      this.moveAtMarker(e);
-    });
+    window.addEventListener('mousemove', this.moveAtMarker);
     // window.addEventListener('mouseup', () => {
     //   this.drawEnd();
     // });
@@ -318,7 +308,7 @@ export default {
     let teams = this.teams
 
     teams.forEach((team, i) => {
-      let players = document.getElementsByClassName(team.name);
+      let players = [...document.getElementsByClassName(team.name)];
       players.forEach((player, index) => {
         player.style.position = 'absolute';
         player.style.left = this.players[i][index].x + 'px';
@@ -394,7 +384,7 @@ export default {
       this.gY = y;
     },
     drawStart(e) {
-      let players = document.getElementsByClassName('player');
+      let players = [...document.getElementsByClassName('player')];
       players.forEach(player => {
         player.classList.remove('drawPlayer');
       });
@@ -410,7 +400,7 @@ export default {
     drawEnd() {
       this.context.closePath();
       this.isDraw = false;
-      let players = document.getElementsByClassName('player');
+      let players = [...document.getElementsByClassName('player')];
         players.forEach(player => {
           player.classList.add('drawPlayer');
         });
@@ -507,7 +497,7 @@ export default {
     rellocation() {
       let teams = this.teams
       teams.forEach((team, i) => {
-        let players = document.getElementsByClassName(team.name);
+        let players = [...document.getElementsByClassName(team.name)];
         players.forEach((player, index) => {
           // console.log(this.players[i][index]);
           player.style.position = 'absolute';
@@ -519,13 +509,18 @@ export default {
       localStorage.setItem('players', JSON.stringify(this.players));
     },
     createPlayers() {
+      const boardWidth = 900;  // ボードの幅
+      const playerSize = 24;   // プレイヤーの大きさ
+      const margin = 5;        // マージン
+      const startX = boardWidth + 10; // ボードの右端から少し離れた位置
+      const startY = 400;  // マーカーの位置に応じて調整
+
       for (let j = 0; j < 2; j++) {
         let players = [];
         for (let i = 1; i <= 15; i++) {
-          let y_clone = 14 + 30 * (i - 1);
           let player = {
-            x: 50 * (j + 1),
-            y: y_clone,
+            x: startX + ((i - 1) * (playerSize + margin)),
+            y: startY + (j * (playerSize + margin) * 2), // チーム間のスペースを広げる
             number: i,
             zIndex: i * 10 + j * 150
           }
@@ -533,26 +528,30 @@ export default {
         }
         this.players.push(players);
       }
+
+      // ボールの位置は変更しない
       let ball = [{
-        x: 150,
-        y: 427,
+        x: 1120,
+        y: 520,
         number: 0,
         zIndex: 310
       }];
       this.players.push(ball);
+
+      // ポイントマーカーの位置も調整
       let points = [];
       for (let i = 0; i < 3; i++) {
         let point = {
-          x: 6 + i * 65,
-          y: 470,
+          x: startX + i * 65,
+          y: startY + 2 * (playerSize + margin) * 2, // チームの下に配置
           number: i,
           zIndex: 320 + i * 10
         };
         points.push(point)
       }
       let point = {
-        x: 6,
-        y: 535,
+        x: startX,
+        y: startY + 2 * (playerSize + margin) * 2 + 65, // 最後のポイントをさらに下に
         number: 3,
         zIndex: 350
       }
@@ -665,7 +664,6 @@ export default {
     },
     closeModal() {
       this.modal = false;
-      this.mask = false;
       this.inputPosition = '';
     },
     openModal() {
@@ -692,12 +690,15 @@ export default {
     touchstart(event, marker) {
       this.isMove = true;
       this.moveMarker = marker;
+      if (!this.moveMarker) {
+        console.error('Marker is null or undefined');
+      }
       this.shiftX = event.clientX - this.$refs.element[marker.index].getBoundingClientRect().left;
       this.shiftY = event.clientY - this.$refs.element[marker.index].getBoundingClientRect().top;
       console.log(event, marker);
     },
     moveAtMarker(event) {
-      if(!this.isMove) {
+      if(!this.isMove || !this.moveMarker) {
         return
       }
       this.moveMarker.x = event.pageX - this.shiftX;
@@ -705,7 +706,9 @@ export default {
     },
     touchend() {
       this.isMove = false;
-      this.moveMarker = null;
+      if (this.moveMarker) {
+        this.moveMarker = null;
+      }
     },
     drawGround() {
       const canvas = document.getElementById('ground');
@@ -788,294 +791,175 @@ export default {
 
       ctx.setLineDash([]);
     },
-  }
+  },
+  beforeDestroy() {
+    window.removeEventListener('mousemove', this.moveAtMarker);
+  },
 }
 </script>
 
 <style scoped>
   body {
-    /* height: 100%; */
-    margin: 0;
-    padding: 0;
-    background-color: red
-    /* cursor: grab; */
-  }
-  #container {
+  margin: 0;
+  padding: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+#container {
   display: flex;
   user-select: none;
   margin: 5px;
-  }
-  .chart-wrapper {
-    width: 95vh;
-    margin: auto;
-  }
-  #board {
-    position: relative;
-    width: 750px;
-    height: 580px;
-  }
-  #ground {
-    position: absolute;
-    z-index: 10;
-    background-color: rgb(12, 211, 12);
-    /* background-color: transparent; */
-    z-index: 5;
-  }
-  #canvas {
-    position: absolute;
-    z-index: 20;
-    background-color: transparent;
-    cursor: crosshair;
-  }
-  #img {
-    height: 100%;
-    text-align: center;
-    user-select: none;
-    -webkit-user-drag: none;
-  }
-  #piece {
-    height: 100%;
-    width: 200px;
-  }
-  #color {
-    margin-top: 5px;
-    margin-left: 20px;
-  }
-  /* #action {
-    margin-top: 10px;
-    margin-left: 20px;
-  } */
-
-  .player {
-    text-align: center;
-    font-size: 12px;
-    line-height: 24px;
-    height: 24px;
-    width: 24px;
-    border-radius: 50%;
-    user-select: none;
-    text-shadow: .3px .3px .3px rgba(255, 255, 255, 0.66);
-    box-shadow: inset 0px 1.5px 0 rgba(255,255,255,0.3), 0 1.5px 1.5px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-  }
-
-  .button {
-    margin-left: 8px;
-    margin-bottom: 8px;
-  }
-
-  .test {
-    z-index: 1000;
-    position: absolute;
-    left: 200px;
-    top: 200px;
-    background: #000;
-  }
-  .my-team {
-    background: rgb(235, 25, 25);
-    color: white;
-  }
-  .my-team:hover {
-    background: rgb(236, 90, 90);
-  }
-  .opponent {
-    background: rgb(0, 0, 0);
-    color: white;
-  }
-  .opponent:hover {
-    background: rgb(107, 107, 107);
-    color: white;
-  }
-  .points {
-    background: rgb(2, 53, 219);
-    color: white;
-    text-align: center;
-    font-size: 36px;
-    line-height: 60px;
-    height: 60px;
-    width: 60px;
-    text-shadow: .6px .6px .6px rgba(255, 255, 255, 0.66);
-    box-shadow: inset 0px 2.2px 0 rgba(255,255,255,0.3), 0 2.2px 2.2px rgba(0, 0, 0, 0.3);
-  }
-  .points:hover {
-    background: rgb(27, 63, 224);
-    color: white;
-  }
-  .ball {
-    /* background: rgb(161, 60, 60);
-    color: white; */
-    width:30px;                                   /* 横幅のサイズを指定    */
-    height:30px;
-    border-top-left-radius: 40px;
-    border-top-right-radius: 15px;
-    border-bottom-left-radius: 15px;
-    border-bottom-right-radius: 40px;
-    background: none;
-  }
-  .line-out {
-    width: 90px;
-    border-radius: 5px;
-    height: 40px;
-    line-height: 44px;
-  }
-  .rightElements {
-    display: flex;
-    flex-direction: column;
-    margin-left: 10px;
-  }
-
-#logout {
-
 }
+
+#board {
+  position: relative;
+  width: 750px;
+  height: 580px;
+}
+
+#ground {
+  position: absolute;
+  z-index: 5;
+  background-color: rgb(12, 211, 12);
+}
+
+#canvas {
+  position: absolute;
+  z-index: 20;
+  background-color: transparent;
+  cursor: crosshair;
+}
+
+.player {
+  text-align: center;
+  font-size: 12px;
+  line-height: 24px;
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  user-select: none;
+  text-shadow: .3px .3px .3px rgba(255, 255, 255, 0.66);
+  box-shadow: inset 0px 1.5px 0 rgba(255,255,255,0.3), 0 1.5px 1.5px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.my-team {
+  background: rgb(235, 25, 25);
+  color: white;
+}
+
+.my-team:hover {
+  background: rgb(236, 90, 90);
+}
+
+.opponent {
+  background: rgb(0, 0, 0);
+  color: white;
+}
+
+.opponent:hover {
+  background: rgb(107, 107, 107);
+}
+
+.points {
+  background: rgb(2, 53, 219);
+  color: white;
+  font-size: 36px;
+  line-height: 60px;
+  height: 60px;
+  width: 60px;
+}
+
+.points:hover {
+  background: rgb(27, 63, 224);
+}
+
+.ball {
+  width: 30px;
+  height: 30px;
+  border-top-left-radius: 40px;
+  border-top-right-radius: 15px;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 40px;
+  background: none;
+}
+
+.line-out {
+  width: 90px;
+  border-radius: 5px;
+  height: 40px;
+  line-height: 44px;
+}
+
+.rightElements {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+  background-color: #f8f8f8;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 #logout-container {
   display: flex;
   justify-content: flex-end;
 }
-  /* .button {
-    border: 1px solid #ccc;
-    background: #f1e767;
-    background: -webkit-gradient(linear, left top, left bottom, from(#fdfbfb), to(#ebedee));
-    background: -webkit-linear-gradient(top, #fdfbfb 0%, #ebedee 100%);
-    background: linear-gradient(to bottom, #fdfbfb 0%, #ebedee 100%);
-    -webkit-box-shadow: inset 1px 1px 1px #fff;
-    box-shadow: inset 1px 1px 1px #fff;
-    height: 30px;
-    width: 150px;
-    margin-top: 20px;
-    margin-bottom: 30px;
-    margin-left: 30px;
-    border-radius: 5px;
-    text-align: center;
-    line-height: 30px;
-    cursor: pointer;
-  } */
-  .clearWrap {
-    display: flex;
-  }
 
-  #mask {
-  background: rgba(0, 0, 0, 0.4);
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  z-index: 2000;
+.button, .bt-samp78 {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  transition-duration: 0.4s;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
-.modal {
-  background: #fff;
-  padding: 0;
-  position: fixed;
-  border-radius: 5px;
-  top: 150px;
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  height: 150px;
+.button:hover, .bt-samp78:hover {
+  background-color: #45a049;
+}
+
+.select-box {
+  appearance: none;
+  background-color: #f8f8f8;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  width: 100%;
+  font-size: 16px;
+  color: #333;
+}
+
+.select-box:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+#logout {
+  background-color: #f44336;
+}
+
+#logout:hover {
+  background-color: #d32f2f;
+}
+
+.buttons {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.left-buttons {
   display: flex;
   flex-direction: column;
-  z-index: 2500;
-}
-
-.modal {
-  width: 300px;
-  height: 150px;
-}
-
-.modalBody {
-  height: 100px;
-}
-
-.modalBody > input {
-  width: auto;
-  margin-left: 10px;
-}
-
-/* .modalFootter {
-  margin-top: 5px;
-} */
-
-.modalBody > h1, h2, p {
-  margin: 0;
-  height: 50px;
-  line-height: 50px;
-  font-weight: normal;
-  border-radius: 5px;
-  text-align: center;
-}
-
-.modalBody > p {
-  font-size: 18px;
-  height: auto;
-}
-
-.modalFootter {
-  height: auto;
-  background: #ddd;
-  border-radius: 5px;
-  align-items: flex-end;
-}
-.close, .register {
-  font-size: 16px;
-  color: #fff;
-  background: rgb(22, 244, 192);
-  height: 30px;
-  width: 50px;
-  line-height: 30px;
-  margin: 10px auto 10px 130px;
-  border-radius: 5px;
-  cursor: pointer;
-  text-align: center;
-}
-
-.label {
-  margin: 10px 20px;
-  line-height: 20px;
-  height: 20px;
-  display: flex;
-}
-
-.label > label {
-  margin-left: 5px;
-}
-
-.label > input {
-  line-height: 20px;
-  height: 20px;
-  align-items: center;
-}
-
-.delete {
-  padding-left: 10px;
-  cursor: pointer;
-  line-height: 20px;
-}
-
-.delete:hover, label:hover {
-  color: blue;
-  opacity: 0.8;
-}
-
-label {
-  font-size: 20px;
-  line-height: 20px;
-  cursor: pointer;
-}
-
-.drawPlayer:hover {
-  cursor: grab;
-}
-.drawPlayer:active {
-  cursor: grabbing;
-}
-
-.isMove {
-  cursor: grabbing;
-}
-
-.paint-wrap{
-  /* background: red; */
+  width: 100%;
+  padding-left: 8px;
 }
 
 .select-wrap {
@@ -1083,25 +967,7 @@ label {
   height: 44px;
   width: 200px;
 }
-.left-buttons {
-  display: flex;
-  flex-direction: column;
-  /* background: skyblue; */
-  width: 100%;
-  padding-left: 8px;
-}
-.buttons {
-  /* background: pink; */
-  height: 100%;
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-}
 
-.select-box {
-  width: 100px;
-  text-align: center;
-}
 .player-button-wrap {
   margin-top: 30px;
   margin-left: 8px;
@@ -1113,57 +979,41 @@ label {
   margin-top: 30px;
   display: flex;
 }
+
 table {
   width: 100%;
+  border-collapse: collapse;
 }
 
-th {
+th, td {
+  padding: 10px;
   text-align: center;
 }
 
-.bt-samp78{
-  display: inline-block;
-  position: relative;
-  height: 30px;
-  width: 30px;
-  padding-left:1px;
-  text-decoration: none;
-  line-height: 30px;
-  text-align: center;
-  color: #b9b4b2;
-  font-size: 18px;
-  text-shadow: 0px 1px 0px #fafafa;
-  background: #e4e3e2;
-  background: -webkit-gradient(linear, left top, left bottom, from(#eaeaea), to(#d3cecd));
-  background: -moz-linear-gradient(top,  #eaeaea,  #d3cecd);
-  background: -o-linear-gradient(top,  #eaeaea,  #d3cecd);
-  background: -ms-linear-gradient(top,  #eaeaea,  #d3cecd);
-  background: linear-gradient(top,  #eaeaea,  #d3cecd);
-  border: 1px solid #dcd9d8;
-  border-bottom: 1px solid #c1c1bd;
-  border-radius: 50%;
-  -webkit-box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
-  -moz-box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
-  box-shadow: inset 0 2px 1px rgba(255,255,255,0.6), 0 0 1px #c7c5c1;
-  text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.7);
+.add-btn {
+  background-color: #2196F3;
 }
-.bt-samp78:hover { /* マウスオーバー時 */
-  background: #eaeaea;
-  background: -webkit-gradient(linear, left top, left bottom, from(#eaeaea), to(#e4e3e2));
-  background: -moz-linear-gradient(top,  #eaeaea,  #e4e3e2);
-  background: -o-linear-gradient(top,  #eaeaea,  #e4e3e2);
-  background: -ms-linear-gradient(top,  #eaeaea,  #e4e3e2);
-  background: linear-gradient(top,  #eaeaea,  #e4e3e2);
-  -webkit-box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
-  -moz-box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
-  box-shadow: inset 0 2px 1px rgba(0,0,0,0.1);
-  border-bottom:none;
+
+.add-btn:hover {
+  background-color: #1976D2;
 }
-.bt-samp78:active { /* クリック時 */
-  -ms-transform: translateY(2px);
-  -webkit-transform: translateY(2px);
-  transform: translateY(2px);
+
+.clear {
+  background-color: #ff9800;
 }
+
+.clear:hover {
+  background-color: #f57c00;
+}
+
+.drawPlayer:hover {
+  cursor: grab;
+}
+
+.drawPlayer:active {
+  cursor: grabbing;
+}
+
 .marker {
   z-index: 1000;
   text-align: center;
@@ -1178,11 +1028,146 @@ th {
   box-shadow: inset 0px 1.5px 0 rgba(255,255,255,0.3), 0 1.5px 1.5px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
+
 .marker:hover {
   cursor: grab;
 }
+
 .marker:active {
   cursor: grabbing;
+}
+
+/* ラジオボタンのカスタムスタイル */
+.label {
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+  cursor: pointer;
+  position: relative;
+  padding-left: 35px;
+  user-select: none;
+}
+
+.label input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.custom-radio {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 25px;
+  width: 25px;
+  background-color: #eee;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.label:hover input ~ .custom-radio {
+  background-color: #ccc;
+}
+
+.label input:checked ~ .custom-radio {
+  background-color: #4CAF50;
+}
+
+.custom-radio:after {
+  content: "";
+  position: absolute;
+  display: none;
+  top: 9px;
+  left: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.label input:checked ~ .custom-radio:after {
+  display: block;
+}
+
+.label-text {
+  font-size: 16px;
+  color: #333;
+  margin-left: 10px;
+}
+
+.delete {
+  margin-left: auto;
+  color: #f44336;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.delete:hover {
+  color: #d32f2f;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  z-index: 1001;
+  width: 300px;
+}
+
+.modalBody {
+  margin-bottom: 20px;
+}
+
+.modalBody > p {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.modalBody > input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.modalFootter {
+  text-align: right;
+}
+
+.register {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.register:hover {
+  background-color: #45a049;
+}
+
+#mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.hidden {
+  display: none;
 }
 
 </style>
