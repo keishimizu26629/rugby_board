@@ -1,5 +1,9 @@
 {
   "projects": {
-    "default": "rugby-board"
-  }
+    "default": "rugby-board",
+    "y": "rugby-board"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
 }
