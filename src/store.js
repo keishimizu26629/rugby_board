@@ -52,7 +52,11 @@ export default new Vuex.Store({
         firebase.auth().onAuthStateChanged(user => {
           if (user) {
             commit('updateLoginUser', user);
-            router.push('/');
+            router.push('/').catch(err => {
+              if (err.name !== 'NavigationDuplicated') {
+                throw err;
+              }
+            });
           }
         });
       } catch(e) {
