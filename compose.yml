@@ -1,0 +1,11 @@
+services:
+  vueapp:
+    build: .
+    ports:
+      - "5527:5527"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_TOKEN=${FIREBASE_TOKEN}
