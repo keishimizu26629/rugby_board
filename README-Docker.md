@@ -1,107 +1,144 @@
 # Rugby Board Docker 環境
 
-このプロジェクトは Docker を使用して開発・本番環境を構築できます。
+## 🚀 環境構成
 
-## 前提条件
+統合された `compose.yml` で以下の環境をサポート：
 
-- Docker がインストールされていること
-- Docker Compose がインストールされていること
+- **Development**: 開発環境（ホットリロード対応）
+- **Production**: 本番環境（Nginx + 最適化ビルド）
+- **Test**: テスト環境（Jest ユニットテスト）
+- **Integration**: 統合テスト環境（Firebase Emulator 含む）
 
-## 開発環境での起動
+## 📋 使用方法
 
-### 方法 1: メインの docker-compose.yml を使用
+### VS Code Tasks（推奨）
 
-```bash
-docker compose up --build
-```
+1. `Ctrl/Cmd + Shift + P` を押す
+2. `Tasks: Run Task` を選択
+3. 以下のタスクから選択：
+   - 🚀 Rugby Board - Development
+   - 🧪 Rugby Board - Test
+   - 🏭 Rugby Board - Production
+   - 🧪 Rugby Board - Integration Test
 
-### 方法 2: 開発専用の docker-compose.dev.yml を使用（推奨）
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-開発サーバーが起動後、以下の URL でアクセスできます：
-
-- http://localhost:5527
-
-## 本番環境での起動
-
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-本番環境は以下の URL でアクセスできます：
-
-- http://localhost
-
-## 便利なコマンド
-
-### コンテナのログを確認
+### コマンドライン
 
 ```bash
 # 開発環境
-docker compose -f docker-compose.dev.yml logs -f
+npm run docker:dev
+# または
+docker compose down && docker compose --profile dev up --build
+
+# テスト環境
+npm run docker:test
+# または
+docker compose down && docker compose --profile test up --build
 
 # 本番環境
-docker compose -f docker-compose.prod.yml logs -f
+npm run docker:prod
+# または
+docker compose down && docker compose --profile prod up --build
+
+# 統合テスト環境
+npm run docker:integration
+# または
+docker compose down && docker compose --profile integration up --build
 ```
 
-### コンテナに入る
+### 個別操作
 
 ```bash
-# 開発環境
-docker compose -f docker-compose.dev.yml exec rugby-board-dev sh
+# コンテナ停止・削除
+docker compose down
 
-# 本番環境
-docker compose -f docker-compose.prod.yml exec rugby-board-prod sh
+# ログ確認
+docker compose logs -f
+
+# テストのみ実行（ビルドなし）
+docker compose --profile test up rugby-board-test
 ```
 
-### コンテナを停止
+## 🌐 アクセス URL
+
+| 環境                 | URL                   | 説明                    |
+| -------------------- | --------------------- | ----------------------- |
+| Development          | http://localhost:5527 | 開発サーバー            |
+| Production           | http://localhost:80   | 本番サーバー            |
+| Firebase Emulator UI | http://localhost:4000 | Firebase エミュレーター |
+
+## 🔧 VS Code 統合
+
+### Launch Configurations
+
+- F5 キーで以下の設定から選択可能：
+  - 🚀 Rugby Board - Development
+  - 🧪 Rugby Board - Test
+  - 🏭 Rugby Board - Production
+
+### Tasks
+
+- `Ctrl/Cmd + Shift + P` → `Tasks: Run Task` で実行
+- 自動的に `docker compose down` してからクリーンな状態で起動
+
+## 📊 テスト環境
+
+### ユニットテスト
 
 ```bash
-# 開発環境
-docker compose -f docker-compose.dev.yml down
+# フルテストスイート実行
+npm run docker:test
 
-# 本番環境
-docker compose -f docker-compose.prod.yml down
+# テストのみ（ビルドスキップ）
+npm run docker:test:unit
 ```
 
-### イメージとボリュームを完全削除
+### 統合テスト
 
 ```bash
-docker compose -f docker-compose.dev.yml down --rmi all --volumes
+# Firebase Emulator 含む統合テスト
+npm run docker:integration
 ```
 
-## 開発時の注意点
+## 🐳 Docker Profiles
 
-1. **ホットリロード**: 開発環境では、ファイルの変更が自動的に反映されます
-2. **ポート**: 開発環境は 5527 番ポート、本番環境は 80 番ポートを使用します
-3. **ボリュームマウント**: 開発環境では、ローカルのファイルがコンテナ内にマウントされます
+| Profile       | Services                             | 用途           |
+| ------------- | ------------------------------------ | -------------- |
+| `dev`         | rugby-board-dev                      | 開発環境       |
+| `prod`        | rugby-board-prod                     | 本番環境       |
+| `test`        | rugby-board-test                     | ユニットテスト |
+| `integration` | rugby-board-test + firebase-emulator | 統合テスト     |
 
-## トラブルシューティング
+## 🔄 自動クリーンアップ
 
-### ポートが既に使用されている場合
+すべてのタスクとスクリプトは実行前に `docker compose down` を実行し、クリーンな状態から開始します。
+
+## 📦 ボリューム管理
+
+- `dev_node_modules`: 開発環境用 node_modules
+- `test_node_modules`: テスト環境用 node_modules
+- `coverage`: テストカバレッジ出力
+
+## 🚦 トラブルシューティング
+
+### ポート競合
 
 ```bash
-# ポート使用状況確認
+# 使用中のポートを確認
 lsof -i :5527
+lsof -i :80
 
-# プロセス終了
-kill -9 <PID>
+# 強制的にコンテナを停止
+docker compose down --remove-orphans
 ```
 
-### Docker キャッシュをクリア
+### キャッシュクリア
 
 ```bash
-docker system prune -a
-```
+# ビルドキャッシュクリア
+docker compose build --no-cache
 
-### node_modules の問題
-
-```bash
-# コンテナを再ビルド
-docker compose -f docker-compose.dev.yml up --build --force-recreate
+# イメージとボリューム削除
+docker compose down --volumes --rmi all
 ```
 
 ## プロジェクト構成
