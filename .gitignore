@@ -24,3 +24,5 @@ pnpm-debug.log*
 
 # firebaseConfig
 firebaseConfig.js
+
+.ai/
