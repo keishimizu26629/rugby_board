@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=test
       - CI=true
+    user: "0:0" # rootユーザーで実行して権限問題を回避
     command: npm run test:unit
     networks:
       - rugby-board-network

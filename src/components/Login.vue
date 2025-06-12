@@ -31,46 +31,47 @@
   </div>
 </template>
 
-<script>
-// import firebase from 'firebase';
-export default {
-  data() {
-    return {
-      userAccountData: {
-        mailAddress: '',
-        password: '',
-      },
-    };
-  },
-  computed: {
-    loginError() {
-      return this.$store.getters.loginError;
-    }
-  },
-  methods: {
-    guestsLogin() {
-      this.userAccountData.mailAddress = 'test@gmail.com';
-      this.userAccountData.password = 'testtest';
-      this.login();
-    },
-    login() {
-      this.$store.dispatch('login', {
-        email: this.userAccountData.mailAddress,
-        password: this.userAccountData.password
-      });
-    },
-    loginUserAccount() {
-      this.$store.dispatch('loginUserAccount',  {
-        email: this.userAccountData.mailAddress,
-        password: this.userAccountData.password
-      });
-      this.userAccountData.mailAddress = '';
-      this.userAccountData.password = '';
-    },
-    toRegister() {
-      this.$router.push('/register');
-    },
-  }
+<script setup>
+import { ref, computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+// Pinia Store
+const authStore = useAuthStore()
+
+// Reactive Data
+const userAccountData = ref({
+  mailAddress: '',
+  password: '',
+})
+
+// Computed
+const loginError = computed(() => authStore.loginError)
+
+// Methods
+const guestsLogin = () => {
+  userAccountData.value.mailAddress = 'test@gmail.com'
+  userAccountData.value.password = 'testtest'
+  login()
+}
+
+const login = () => {
+  authStore.login({
+    email: userAccountData.value.mailAddress,
+    password: userAccountData.value.password
+  })
+}
+
+const loginUserAccount = () => {
+  authStore.loginUserAccount({
+    email: userAccountData.value.mailAddress,
+    password: userAccountData.value.password
+  })
+  userAccountData.value.mailAddress = ''
+  userAccountData.value.password = ''
+}
+
+const toRegister = () => {
+  // Implement the logic to navigate to the register page
 }
 </script>
 

@@ -46,8 +46,16 @@
 
 <script>
 import axios from '../axiosAuth';
-import firebase from 'firebase';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuthStore } from '@/stores/auth';
+
 export default {
+  setup() {
+    const authStore = useAuthStore();
+    return {
+      authStore
+    };
+  },
   data() {
     return {
       userAccountData: {
@@ -58,7 +66,7 @@ export default {
   },
   computed: {
     loginError() {
-      return this.$store.getters.loginError;
+      return this.authStore.loginError;
     }
   },
   methods: {
@@ -73,9 +81,8 @@ export default {
       });
     },
     register2() {
-      firebase
-        .auth()
-        .createUserWithEmailAndPassword(this.userAccountData.mailAddress, this.userAccountData.password)
+      const auth = getAuth();
+      createUserWithEmailAndPassword(auth, this.userAccountData.mailAddress, this.userAccountData.password)
         .then(response => {
           console.log(response);
         })
@@ -84,7 +91,7 @@ export default {
         });
     },
     loginUserAccount() {
-      this.$store.dispatch('loginUserAccount',  {
+      this.authStore.loginUserAccount({
         email: this.userAccountData.mailAddress,
         password: this.userAccountData.password
       });

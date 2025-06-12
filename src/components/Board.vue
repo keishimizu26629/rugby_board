@@ -34,22 +34,22 @@
                 <v-select
                   :items="lineWidths"
                   v-model="selectedLineWidth"
-                  item-text="label"
+                  item-title="label"
                   item-value="value"
                   label="太さ"
-                  dense
-                  solo
+                  density="compact"
+                  variant="solo"
                   return-object
                   class="select-box"
                 ></v-select>
                 <v-select
                   :items="colors"
                   v-model="selectedColor"
-                  item-text="label"
+                  item-title="label"
                   item-value="value"
                   label="色"
-                  dense
-                  solo
+                  density="compact"
+                  variant="solo"
                   return-object
                   class="select-box"
                 ></v-select>
@@ -73,11 +73,11 @@
                   <td><v-select
                     :items="lineBool"
                     v-model="selectedLineBool"
-                    item-text="label"
+                    item-title="label"
                     item-value="value"
                     label="線"
-                    dense
-                    solo
+                    density="compact"
+                    variant="solo"
                     return-object
                     class="select-box"
                     v-on:change="changeGroundLine"
@@ -86,11 +86,11 @@
                   <td><v-select
                     :items="numBool"
                     v-model="selectedNumBool"
-                    item-text="label"
+                    item-title="label"
                     item-value="value"
                     label="背番号"
-                    dense
-                    solo
+                    density="compact"
+                    variant="solo"
                     return-object
                     class="select-box"
                     ></v-select>
@@ -163,7 +163,7 @@
     <div class="player points drawPlayer">R</div>
     <div class="player points drawPlayer">M</div>
     <div class="player points drawPlayer line-out">L</div>
-    <img src="ball.png" class="player ball drawPlayer">
+    <img src="/ball.png" class="player ball drawPlayer">
     <!-- <div
       class="test"
       @mousedown="testDrag"
@@ -183,9 +183,18 @@
 </template>
 
 <script>
-import firebase from 'firebase';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { useAuthStore } from '@/stores/auth';
+import { computed } from 'vue';
+
 export default {
   name: 'App',
+  setup() {
+    const authStore = useAuthStore();
+    return {
+      authStore
+    };
+  },
   data() {
     return {
       players: [],
@@ -256,10 +265,10 @@ export default {
   },
   computed: {
     positions() {
-      return this.$store.getters.positions;
+      return this.authStore.positions;
     },
     uid() {
-      return this.$store.getters.loginUser.uid;
+      return this.authStore.loginUser?.uid;
     },
     convertPx() {
       return (num) => {
@@ -414,7 +423,9 @@ export default {
 
     async testFetch() {
       try {
-        const response = await firebase.firestore().collection('users').doc(this.uid).get();
+        const db = getFirestore();
+        const docRef = doc(db, 'users', this.uid);
+        const response = await getDoc(docRef);
         const positions = response.data().positions;
         this.testPositions = [];
         Object.entries(positions).forEach(object => {
@@ -428,7 +439,7 @@ export default {
       }
     },
     logout: function() {
-      this.$store.dispatch('logout');
+      this.authStore.logout();
     },
     testMove() {
       setTimeout(() => {
@@ -466,7 +477,7 @@ export default {
     },
     testPost() {
       const position = this.transformObject();
-      this.$store.dispatch('testPost', {name: this.inputPosition, players: position});
+      this.authStore.testPost({name: this.inputPosition, players: position});
       this.closeModal();
     },
     customPlacement(positions) {
@@ -672,7 +683,7 @@ export default {
     },
     deletePosition(name) {
       if (confirm('削除しますか？')) {
-        this.$store.dispatch('testDelete', name);
+        this.authStore.testDelete(name);
         // console.log(name);
       }
     },

@@ -1,7 +1,7 @@
 # Multi-stage build for Vue.js Rugby Board project
 
 # Stage 1: Development
-FROM node:16-alpine AS development
+FROM node:18-alpine AS development
 
 # Add Python and build essentials for native modules
 RUN apk add --no-cache python3 make g++
@@ -14,9 +14,15 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 RUN chown -R vue:nodejs /app
 
-# Copy package files and install dependencies
+# Create Cypress cache directory with proper permissions
+RUN mkdir -p /home/vue/.cache/Cypress && chown -R vue:nodejs /home/vue/.cache
+
+# Copy entrypoint script
+COPY --chown=vue:nodejs docker/entrypoint-dev.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Copy package files (will install on startup via entrypoint)
 COPY --chown=vue:nodejs package*.json ./
-RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY --chown=vue:nodejs . .
@@ -27,12 +33,14 @@ USER vue
 # Expose port and set environment
 EXPOSE 5527
 ENV NODE_ENV=development
+ENV CYPRESS_CACHE_FOLDER=/home/vue/.cache/Cypress
 
-# Start development server
+# Set entrypoint and default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["npm", "run", "serve"]
 
 # Stage 2: Test Environment
-FROM node:16-alpine AS test
+FROM node:18-alpine AS test
 
 # Add Python and build essentials for testing tools
 RUN apk add --no-cache python3 make g++
@@ -45,9 +53,15 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 RUN chown -R vue:nodejs /app
 
-# Copy package files and install dependencies
+# Create Cypress cache directory with proper permissions
+RUN mkdir -p /home/vue/.cache/Cypress && chown -R vue:nodejs /home/vue/.cache
+
+# Copy entrypoint script
+COPY --chown=vue:nodejs docker/entrypoint-test.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Copy package files (will install on startup via entrypoint)
 COPY --chown=vue:nodejs package*.json ./
-RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY --chown=vue:nodejs . .
@@ -58,12 +72,14 @@ USER vue
 # Set test environment
 ENV NODE_ENV=test
 ENV CI=true
+ENV CYPRESS_CACHE_FOLDER=/home/vue/.cache/Cypress
 
-# Default command for tests (can be overridden)
+# Set entrypoint and default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["npm", "run", "test:unit"]
 
 # Stage 3: Build
-FROM node:16-alpine AS build
+FROM node:18-alpine AS build
 
 # Add Python and build essentials
 RUN apk add --no-cache python3 make g++
