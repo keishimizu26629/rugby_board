@@ -1,5 +1,5 @@
 services:
-  # Test Environment (常に起動)
+  # Test Environment (テスト用)
   rugby-board-test:
     build:
       context: .
@@ -16,8 +16,10 @@ services:
     command: npm run test:unit
     networks:
       - rugby-board-network
+    profiles:
+      - test
 
-  # Development Environment (引数でプロファイル指定)
+  # Development Environment (デフォルト起動)
   rugby-board-dev:
     build:
       context: .
@@ -36,8 +38,7 @@ services:
     tty: true
     networks:
       - rugby-board-network
-    profiles:
-      - dev
+    user: "0:0" # rootユーザーで実行して権限問題を回避
 
   # Production Environment (引数でプロファイル指定)
   rugby-board-prod:
