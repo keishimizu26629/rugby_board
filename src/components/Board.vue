@@ -46,7 +46,6 @@
             v-for="player in players[0]"
             :key="player.id"
             class="player my-team drawPlayer"
-            @mousedown="testDrag"
           >
             {{ player.number }}
           </div>
@@ -373,29 +372,45 @@ export default {
             player.style.zIndex = this.players[i][index].zIndex;
 
             player.addEventListener('mousedown', event => {
+              event.preventDefault();
               this.isMove = true;
-              let shiftX = event.clientX - player.getBoundingClientRect().left;
-              let shiftY = event.clientY - player.getBoundingClientRect().top;
+
+              // ボードコンテナの位置を取得
+              const boardRect = document.getElementById('board').getBoundingClientRect();
+              const playerRect = player.getBoundingClientRect();
+
+              // マウスとプレイヤーの相対位置を計算
+              let shiftX = event.clientX - playerRect.left;
+              let shiftY = event.clientY - playerRect.top;
 
               this.setZIndex(players, i, index);
 
-              const moveAt = (pageX, pageY) => {
-                player.style.left = pageX - shiftX + 'px';
-                player.style.top = pageY - shiftY + 'px';
+              const moveAt = (clientX, clientY) => {
+                // ボードコンテナ内での相対位置を計算
+                const newX = clientX - boardRect.left - shiftX;
+                const newY = clientY - boardRect.top - shiftY;
+
+                player.style.left = newX + 'px';
+                player.style.top = newY + 'px';
               };
 
               const onMouseMove = (event) => {
-                moveAt(event.pageX, event.pageY);
+                moveAt(event.clientX, event.clientY);
               };
 
-              moveAt(event.pageX, event.pageY);
+              // 初期位置を設定
+              moveAt(event.clientX, event.clientY);
               document.addEventListener('mousemove', onMouseMove);
 
               const onMouseUp = (e) => {
                 this.isMove = false;
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
-                this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
+
+                // 最終位置を保存（ボードコンテナ内での相対位置）
+                const finalX = e.clientX - boardRect.left - shiftX;
+                const finalY = e.clientY - boardRect.top - shiftY;
+                this.measuresReload(finalX, finalY, i, index);
               };
 
               document.addEventListener('mouseup', onMouseUp);
@@ -466,9 +481,7 @@ export default {
       localStorage.setItem('drawPath', data);
     },
 
-    testDrag(e) {
-      console.log(e)
-    },
+
 
     /**
      * ログアウト
@@ -740,13 +753,20 @@ export default {
      * マーカーのタッチ開始
      */
     touchstart(event, marker) {
+      event.preventDefault();
       this.isMove = true;
       this.moveMarker = marker;
       if (!this.moveMarker) {
         console.error('Marker is null or undefined');
       }
-      this.shiftX = event.clientX - this.$refs.element[marker.index].getBoundingClientRect().left;
-      this.shiftY = event.clientY - this.$refs.element[marker.index].getBoundingClientRect().top;
+
+      // ボードコンテナの位置を取得
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+      const markerRect = this.$refs.element[marker.index].getBoundingClientRect();
+
+      // マウスとマーカーの相対位置を計算
+      this.shiftX = event.clientX - markerRect.left;
+      this.shiftY = event.clientY - markerRect.top;
     },
 
     /**
@@ -756,8 +776,13 @@ export default {
       if(!this.isMove || !this.moveMarker) {
         return
       }
-      this.moveMarker.x = event.pageX - this.shiftX;
-      this.moveMarker.y = event.pageY - this.shiftY;
+
+      // ボードコンテナの位置を取得
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+
+      // ボードコンテナ内での相対位置を計算
+      this.moveMarker.x = event.clientX - boardRect.left - this.shiftX;
+      this.moveMarker.y = event.clientY - boardRect.top - this.shiftY;
     },
 
     /**
