@@ -88,6 +88,7 @@
       :selected-position="selectPosition"
       :is-loading="isLoading"
       @update-board-settings="updateBoardSettings"
+      @update-line-settings="updateLineSettings"
       @add-marker="addSpot"
       @remove-marker="removeMarker"
       @clear-players="clearPlayer"
@@ -254,6 +255,17 @@ export default {
 
     window.addEventListener('mousemove', this.moveAtMarker);
 
+    // キャンバスに描画イベントを設定
+    this.canvas.addEventListener('mousedown', e => {
+      this.drawStart(e);
+    });
+    this.canvas.addEventListener('mousemove', e => {
+      this.draw(e);
+    });
+    this.canvas.addEventListener('mouseup', () => {
+      this.drawEnd();
+    });
+
     this.placement();
     this.drawAgain(this.context);
 
@@ -262,18 +274,22 @@ export default {
       this.authStore.fetchData();
     }
 
-    window.addEventListener('keydown', e => {
-      if(e.key == 'Control') {
-        this.onPressControlKey = true
-      }
-    });
-    window.addEventListener('keyup', e => {
-      if(e.key == 'Control') {
-        this.onPressControlKey = false
-      }
-    });
+    // Controlキーのイベントは現在不要なためコメントアウト
+    // window.addEventListener('keydown', e => {
+    //   if(e.key == 'Control') {
+    //     this.onPressControlKey = true
+    //   }
+    // });
+    // window.addEventListener('keyup', e => {
+    //   if(e.key == 'Control') {
+    //     this.onPressControlKey = false
+    //   }
+    // });
 
-    this.initializePlayerDragEvents();
+    // プレイヤーの初期配置とドラッグイベントを設定
+    this.$nextTick(() => {
+      this.initializePlayerDragEvents();
+    });
   },
   beforeUnmount() {
     window.removeEventListener('mousemove', this.moveAtMarker);
@@ -294,6 +310,33 @@ export default {
     },
 
     /**
+     * 描画設定を更新
+     */
+    updateLineSettings(settings) {
+      this.lineSettings = { ...this.lineSettings, ...settings };
+      // 古い形式の設定も更新
+      if (settings.color) {
+        const colorMap = {
+          'white': { label: '白', value: 'white' },
+          'black': { label: '黒', value: 'black' },
+          'red': { label: '赤', value: 'red' },
+          'blue': { label: '青', value: 'blue' },
+          'yellow': { label: '黄', value: 'yellow' },
+          'transparent': { label: '消しゴム', value: 'transparent' }
+        };
+        this.selectedColor = colorMap[settings.color] || this.selectedColor;
+      }
+      if (settings.width) {
+        const widthMap = {
+          2: { label: '細', value: 2 },
+          4: { label: '中', value: 4 },
+          6: { label: '太', value: 6 }
+        };
+        this.selectedLineWidth = widthMap[settings.width] || this.selectedLineWidth;
+      }
+    },
+
+    /**
      * ポジションを適用
      */
     applyPosition(positionName) {
@@ -309,40 +352,45 @@ export default {
       teams.forEach((team, i) => {
         let players = [...document.getElementsByClassName(team.name)];
         players.forEach((player, index) => {
-          player.style.position = 'absolute';
-          player.style.left = this.players[i][index].x + 'px';
-          player.style.top = this.players[i][index].y + 'px';
-          player.style.zIndex = this.players[i][index].zIndex;
+          if (this.players[i] && this.players[i][index]) {
+            player.style.position = 'absolute';
+            player.style.left = this.players[i][index].x + 'px';
+            player.style.top = this.players[i][index].y + 'px';
+            player.style.zIndex = this.players[i][index].zIndex;
 
-          player.addEventListener('mousedown', event => {
-            this.isMove = true;
-            let shiftX = event.clientX - player.getBoundingClientRect().left;
-            let shiftY = event.clientY - player.getBoundingClientRect().top;
+            player.addEventListener('mousedown', event => {
+              this.isMove = true;
+              let shiftX = event.clientX - player.getBoundingClientRect().left;
+              let shiftY = event.clientY - player.getBoundingClientRect().top;
 
-            this.setZIndex(players, i, index);
+              this.setZIndex(players, i, index);
 
-            const moveAt = (pageX, pageY) => {
-              player.style.left = pageX - shiftX + 'px';
-              player.style.top = pageY - shiftY + 'px';
-            };
+              const moveAt = (pageX, pageY) => {
+                player.style.left = pageX - shiftX + 'px';
+                player.style.top = pageY - shiftY + 'px';
+              };
 
-            const onMouseMove = (event) => {
+              const onMouseMove = (event) => {
+                moveAt(event.pageX, event.pageY);
+              };
+
               moveAt(event.pageX, event.pageY);
-            };
+              document.addEventListener('mousemove', onMouseMove);
 
-            moveAt(event.pageX, event.pageY);
-            document.addEventListener('mousemove', onMouseMove);
+              const onMouseUp = (e) => {
+                this.isMove = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
+              };
 
-            player.addEventListener('mouseup', e => {
-              this.isMove = false;
-              document.removeEventListener('mousemove', onMouseMove);
-              this.measuresReload(e.pageX - shiftX, e.pageY - shiftY, i, index);
+              document.addEventListener('mouseup', onMouseUp);
             });
-          });
 
-          player.ondragstart = function() {
-            return false;
-          };
+            player.ondragstart = function() {
+              return false;
+            };
+          }
         });
       });
     },
@@ -486,10 +534,12 @@ export default {
       teams.forEach((team, i) => {
         let players = [...document.getElementsByClassName(team.name)];
         players.forEach((player, index) => {
-          player.style.position = 'absolute';
-          player.style.left = this.players[i][index].x + 'px';
-          player.style.top = this.players[i][index].y + 'px';
-          player.style.zIndex = this.players[i][index].zIndex;
+          if (this.players[i] && this.players[i][index]) {
+            player.style.position = 'absolute';
+            player.style.left = this.players[i][index].x + 'px';
+            player.style.top = this.players[i][index].y + 'px';
+            player.style.zIndex = this.players[i][index].zIndex;
+          }
         });
       });
       localStorage.setItem('players', JSON.stringify(this.players));

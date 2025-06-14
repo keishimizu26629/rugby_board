@@ -5,6 +5,9 @@
     width="660"
     height="580"
     class="rugby-field"
+    @mousedown="onMouseDown"
+    @mousemove="onMouseMove"
+    @mouseup="onMouseUp"
   />
 </template>
 
@@ -19,9 +22,17 @@ interface Props {
   showLines?: boolean;
 }
 
+interface Emits {
+  (e: 'draw-start', event: MouseEvent): void;
+  (e: 'draw-move', event: MouseEvent): void;
+  (e: 'draw-end', event: MouseEvent): void;
+}
+
 const props = withDefaults(defineProps<Props>(), {
   showLines: true
 });
+
+const emit = defineEmits<Emits>();
 
 const fieldCanvas = ref<HTMLCanvasElement>();
 
@@ -119,6 +130,19 @@ const drawField = () => {
   }
 };
 
+// マウスイベントハンドラー
+const onMouseDown = (event: MouseEvent) => {
+  emit('draw-start', event);
+};
+
+const onMouseMove = (event: MouseEvent) => {
+  emit('draw-move', event);
+};
+
+const onMouseUp = (event: MouseEvent) => {
+  emit('draw-end', event);
+};
+
 onMounted(() => {
   drawField();
 });
@@ -135,5 +159,6 @@ watch(() => props.showLines, () => {
   left: 0;
   background-color: #0CD30C;
   z-index: 1;
+  cursor: crosshair;
 }
 </style>

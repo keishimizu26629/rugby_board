@@ -25,6 +25,53 @@
     <div class="panel-section">
       <h3>描画</h3>
       <div class="drawing-controls">
+        <div class="drawing-settings">
+          <div class="setting-group">
+            <label>色</label>
+            <select
+              :value="lineSettings.color"
+              class="select-box"
+              @change="$emit('update-line-settings', { color: ($event.target as HTMLSelectElement).value })"
+            >
+              <option value="white">
+                白
+              </option>
+              <option value="black">
+                黒
+              </option>
+              <option value="red">
+                赤
+              </option>
+              <option value="blue">
+                青
+              </option>
+              <option value="yellow">
+                黄
+              </option>
+              <option value="transparent">
+                消しゴム
+              </option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label>太さ</label>
+            <select
+              :value="lineSettings.width"
+              class="select-box"
+              @change="$emit('update-line-settings', { width: parseInt(($event.target as HTMLSelectElement).value) })"
+            >
+              <option value="2">
+                細
+              </option>
+              <option value="4">
+                中
+              </option>
+              <option value="6">
+                太
+              </option>
+            </select>
+          </div>
+        </div>
         <button
           class="btn btn-clear"
           @click="$emit('clear-drawing')"
@@ -189,6 +236,33 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.drawing-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.select-box {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
 }
 
 .btn {
