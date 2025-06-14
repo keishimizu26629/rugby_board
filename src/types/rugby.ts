@@ -1,25 +1,24 @@
 export interface Player {
-  id: string;
+  id?: string;
   number: number;
-  team: 'my-team' | 'opponent';
   x: number;
   y: number;
+  zIndex: number;
 }
 
-export interface Marker {
-  index: number;
-  x: number;
-  y: number;
+export interface Team {
+  name: string;
 }
 
 export interface Position {
   name: string;
-  players: Player[];
+  position: Record<string | number, Record<string | number, Player>>;
 }
 
-export interface LineSettings {
-  width: number;
-  color: string;
+export interface Marker {
+  x: number;
+  y: number;
+  index: number;
 }
 
 export interface BoardSettings {
@@ -27,9 +26,12 @@ export interface BoardSettings {
   showNumbers: boolean;
 }
 
-export interface DrawPath {
-  x: number;
-  y: number;
-  width: number;
+export interface LineSettings {
   color: string;
+  width: number;
+}
+
+export interface DrawingSettings {
+  color: { label: string; value: string };
+  width: { label: string; value: number };
 }
