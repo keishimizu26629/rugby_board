@@ -1,10 +1,24 @@
 <template>
   <div class="login-container">
-    <v-container class="fill-height" fluid>
-      <v-row align="center" justify="center">
-        <v-col cols="12" sm="8" md="4">
+    <v-container
+      class="fill-height"
+      fluid
+    >
+      <v-row
+        align="center"
+        justify="center"
+      >
+        <v-col
+          cols="12"
+          sm="8"
+          md="4"
+        >
           <v-card class="elevation-12">
-            <v-toolbar color="primary" dark flat>
+            <v-toolbar
+              color="primary"
+              dark
+              flat
+            >
               <v-toolbar-title>ログイン</v-toolbar-title>
             </v-toolbar>
             <v-card-text>
@@ -40,17 +54,17 @@
               <v-spacer />
               <v-btn
                 color="primary"
-                @click="guestsLogin"
                 :loading="authStore.isLoading"
                 class="mr-2"
+                @click="guestsLogin"
               >
                 ゲストログイン
               </v-btn>
               <v-btn
                 color="primary"
-                @click="handleLogin"
                 :loading="authStore.isLoading"
                 :disabled="!isFormValid"
+                @click="handleLogin"
               >
                 ログイン
               </v-btn>
@@ -59,7 +73,9 @@
           <v-card class="mt-4">
             <v-card-text class="text-center">
               アカウントをお持ちでない方は
-              <router-link to="/register">こちら</router-link>
+              <router-link to="/register">
+                こちら
+              </router-link>
             </v-card-text>
           </v-card>
         </v-col>

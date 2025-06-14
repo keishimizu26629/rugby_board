@@ -358,8 +358,14 @@ export default {
     },
   },
   watch: {
-    state() {
-
+    // ログインユーザーが変更されたときにデータを取得
+    'authStore.loginUser': {
+      handler(newUser) {
+        if (newUser) {
+          this.authStore.fetchData();
+        }
+      },
+      immediate: true
     }
   },
   created() {
@@ -388,6 +394,11 @@ export default {
 
     this.placement();
     this.drawAgain(this.context);
+
+    // 初期化時に登録済みのポジションデータを取得
+    if (this.authStore.loginUser) {
+      this.authStore.fetchData();
+    }
 
     window.addEventListener('keydown', e => {
       if(e.key == 'Control') {

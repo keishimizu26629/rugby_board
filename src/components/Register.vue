@@ -6,21 +6,23 @@
         <label>
           メールアドレス
           <input
+            v-model="userAccountData.mailAddress"
             type="text"
             placeholder="E-mail"
-            v-model="userAccountData.mailAddress"
           >
         </label>
         <label>
           パスワード
           <input
+            v-model="userAccountData.password"
             type="password"
             placeholder="Password"
-            v-model="userAccountData.password"
           >
         </label>
       </fieldset>
-      <div id="loginError">{{ loginError }}</div>
+      <div id="loginError">
+        {{ loginError }}
+      </div>
     </div>
 
     <div
@@ -40,7 +42,6 @@
       <!-- <p>Copyright ©2019 ○○ Inc. All rights reserved</p>
       <div>gifts.com</div> -->
     </footer>
-
   </div>
 </template>
 

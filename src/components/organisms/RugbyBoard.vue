@@ -140,7 +140,7 @@ const handlePlayerMouseDown = (event: MouseEvent, playerId: string) => {
   startDrag(event, playerId, 'player');
 };
 
-const handlePlayerMouseUp = (event: MouseEvent, _playerId: string) => {
+const handlePlayerMouseUp = (event: MouseEvent) => {
   endDrag(event);
 };
 
@@ -148,7 +148,7 @@ const handleMarkerMouseDown = (event: MouseEvent, markerId: number) => {
   startDrag(event, markerId.toString(), 'marker');
 };
 
-const handleMarkerMouseUp = (event: MouseEvent, _markerId: number) => {
+const handleMarkerMouseUp = (event: MouseEvent) => {
   endDrag(event);
 };
 
@@ -167,10 +167,7 @@ const handleDrawEnd = (event: MouseEvent) => {
   endDrawing(event);
 };
 
-const handleBoardSettingsUpdate = (
-  setting: string,
-  _value: boolean
-) => {
+const handleBoardSettingsUpdate = (setting: string) => {
   toggleBoardSetting(setting as keyof typeof boardSettings.value);
 };
 
