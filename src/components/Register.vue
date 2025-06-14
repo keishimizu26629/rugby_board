@@ -45,7 +45,6 @@
 </template>
 
 <script>
-import axios from '../axiosAuth';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuthStore } from '@/stores/auth';
 
@@ -70,16 +69,6 @@ export default {
     }
   },
   methods: {
-    register() {
-      axios.post('/accounts:signUp?key=AIzaSyCH58r7rQrY3tK9lz68RkCvlq-6QVzWq40',{
-        email: this.userAccountData.mailAddress,
-        password: this.userAccountData.password,
-        returnSecureToken: true
-      })
-      .then(response => {
-        console.log(response);
-      });
-    },
     register2() {
       const auth = getAuth();
       createUserWithEmailAndPassword(auth, this.userAccountData.mailAddress, this.userAccountData.password)

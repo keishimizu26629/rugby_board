@@ -1,30 +1,39 @@
 <template>
   <div id="app">
     <div id="container">
-      <div id="piece"></div>
+      <div id="piece" />
       <div id="board">
         <!-- <canvas id="ground" width="660" height="580"></canvas>
         <canvas id="canvas" width="660" height="580"></canvas> -->
-        <canvas id="ground" width="660" height="580"></canvas>
+        <canvas
+          id="ground"
+          width="660"
+          height="580"
+        />
         <canvas
           id="canvas"
           width="660"
           height="580"
-        ></canvas>
+        />
       </div>
       <div
         v-for="marker in markers"
         :key="marker.index"
+        ref="element"
         :style="{left: convertPx(marker.x), top: convertPx(marker.y)}"
         class="marker"
         @mousedown="touchstart($event, marker)"
         @mouseup="touchend()"
-        ref="element"
-      >
-      </div>
+      />
       <div class="rightElements">
         <div id="logout-container">
-          <v-btn @click="logout()" class="button" id="logout">ログアウト</v-btn>
+          <v-btn
+            id="logout"
+            class="button"
+            @click="logout()"
+          >
+            ログアウト
+          </v-btn>
         </div>
         <div class="buttons">
           <div class="left-buttons">
@@ -32,8 +41,8 @@
               <div>ペイント</div>
               <div class="select-wrap">
                 <v-select
-                  :items="lineWidths"
                   v-model="selectedLineWidth"
+                  :items="lineWidths"
                   item-title="label"
                   item-value="value"
                   label="太さ"
@@ -41,10 +50,10 @@
                   variant="solo"
                   return-object
                   class="select-box"
-                ></v-select>
+                />
                 <v-select
-                  :items="colors"
                   v-model="selectedColor"
+                  :items="colors"
                   item-title="label"
                   item-value="value"
                   label="色"
@@ -52,50 +61,58 @@
                   variant="solo"
                   return-object
                   class="select-box"
-                ></v-select>
+                />
               </div>
               <div class="paint-button-wrap">
                 <v-btn
-                  @click="cleardrawPath()"
-                  rounded
-                  class="button clear"
                   id="paint"
-                >クリア</v-btn>
+                  class="button clear"
+                  rounded
+                  @click="cleardrawPath()"
+                >
+                  クリア
+                </v-btn>
               </div>
             </div>
             <div class="toggle_options">
               <table>
-                <tr>
-                  <th>白線</th>
-                  <th>背番号</th>
-                </tr>
-                <tr>
-                  <td><v-select
-                    :items="lineBool"
-                    v-model="selectedLineBool"
-                    item-title="label"
-                    item-value="value"
-                    label="線"
-                    density="compact"
-                    variant="solo"
-                    return-object
-                    class="select-box"
-                    v-on:change="changeGroundLine"
-                    ></v-select>
-                  </td>
-                  <td><v-select
-                    :items="numBool"
-                    v-model="selectedNumBool"
-                    item-title="label"
-                    item-value="value"
-                    label="背番号"
-                    density="compact"
-                    variant="solo"
-                    return-object
-                    class="select-box"
-                    ></v-select>
-                  </td>
-                </tr>
+                <thead>
+                  <tr>
+                    <th>白線</th>
+                    <th>背番号</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <v-select
+                        v-model="selectedLineBool"
+                        :items="lineBool"
+                        item-title="label"
+                        item-value="value"
+                        label="線"
+                        density="compact"
+                        variant="solo"
+                        return-object
+                        class="select-box"
+                        @change="changeGroundLine"
+                      />
+                    </td>
+                    <td>
+                      <v-select
+                        v-model="selectedNumBool"
+                        :items="numBool"
+                        item-title="label"
+                        item-value="value"
+                        label="背番号"
+                        density="compact"
+                        variant="solo"
+                        return-object
+                        class="select-box"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
               </table>
             </div>
             <div class="toggle_options">
@@ -105,15 +122,19 @@
                 </div>
                 <div>
                   <v-btn
+                    class="button add-btn"
+                    elevation="2"
                     @click="addSpot()"
-                    elevation="2"
-                    class="button add-btn"
-                  >追加</v-btn>
+                  >
+                    追加
+                  </v-btn>
                   <v-btn
-                    @click="removeMarker()"
                     elevation="2"
                     class="button add-btn"
-                  >削除</v-btn>
+                    @click="removeMarker()"
+                  >
+                    削除
+                  </v-btn>
                 </div>
               </div>
             </div>
@@ -121,71 +142,136 @@
           <!-- <div @click="scrum()" class="button" id="paint">scrum</div> -->
           <div class="player-button-wrap">
             <!-- <v-btn @click="openModal()" class="button" id="paint">登録</v-btn> -->
-            <button @click="openModal()" class="button bt-samp78" id="paint">+</button>
+            <button
+              id="paint"
+              class="button bt-samp78"
+              @click="openModal()"
+            >
+              +
+            </button>
             <!-- <v-btn @click="customPlacement(positions)" class="button" id="paint">配置</v-btn> -->
-            <button @click="customPlacement(positions)" class="button bt-samp78" id="paint">▶</button>
+            <button
+              id="paint"
+              class="button bt-samp78"
+              @click="customPlacement(positions)"
+            >
+              ▶
+            </button>
             <v-btn
-              @click="clearPlayer()"
               rounded
               elevation="2"
               class="button clear"
-            >クリア</v-btn>
-            <div v-for="(position, index) in positions" :key="`position-${index}`">
-            <label class="label">
-              <input type="radio"
-                    :id="`position-${index}`"
-                    v-model="selectPosition"
-                    name="selectPosition"
-                    :value="position.name">
-              <span class="custom-radio"></span>
-              <span class="label-text">{{ position.name }}</span>
-              <span class="delete" @click.stop="deletePosition(position.name)">[×]</span>
-            </label>
-          </div>
+              @click="clearPlayer()"
+            >
+              クリア
+            </v-btn>
+            <div
+              v-for="(position, index) in positions"
+              :key="`position-${index}`"
+            >
+              <label class="label">
+                <input
+                  :id="`position-${index}`"
+                  v-model="selectPosition"
+                  type="radio"
+                  name="selectPosition"
+                  :value="position.name"
+                >
+                <span class="custom-radio" />
+                <span class="label-text">{{ position.name }}</span>
+                <span
+                  class="delete"
+                  @click.stop="deletePosition(position.name)"
+                >[×]</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
     </div>
     <template v-if="selectedNumBool.value">
       <div
-      v-for="player in players[0]"
-      :key="player.id"
-      class="player my-team drawPlayer"
-      @mousedown="testDrag"
-    >{{ player.number }}</div>
-      <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer">{{ player.number }}</div>
+        v-for="player in players[0]"
+        :key="player.id"
+        class="player my-team drawPlayer"
+        @mousedown="testDrag"
+      >
+        {{ player.number }}
+      </div>
+      <div
+        v-for="player in players[1]"
+        :key="player.id"
+        class="player opponent drawPlayer"
+      >
+        {{ player.number }}
+      </div>
     </template>
     <template v-else>
-      <div v-for="player in players[0]" :key="player.id" class="player my-team drawPlayer"></div>
-      <div v-for="player in players[1]" :key="player.id" class="player opponent drawPlayer"></div>
+      <div
+        v-for="player in players[0]"
+        :key="player.id"
+        class="player my-team drawPlayer"
+      />
+      <div
+        v-for="player in players[1]"
+        :key="player.id"
+        class="player opponent drawPlayer"
+      />
     </template>
-    <div class="player points drawPlayer">S</div>
-    <div class="player points drawPlayer">R</div>
-    <div class="player points drawPlayer">M</div>
-    <div class="player points drawPlayer line-out">L</div>
-    <img src="/ball.png" class="player ball drawPlayer">
+    <div class="player points drawPlayer">
+      S
+    </div>
+    <div class="player points drawPlayer">
+      R
+    </div>
+    <div class="player points drawPlayer">
+      M
+    </div>
+    <div class="player points drawPlayer line-out">
+      L
+    </div>
+    <img
+      src="/ball.png"
+      class="player ball drawPlayer"
+    >
     <!-- <div
       class="test"
       @mousedown="testDrag"
     >T</div> -->
-    <section v-if="modal" id="sendModal" class="modal">
+    <section
+      v-if="modal"
+      id="sendModal"
+      class="modal"
+    >
       <div class="modalBody">
         <p>配置の名前を入力してください。</p>
-        <input type="text" v-model="inputPosition">
-        <div id="sendError"></div>
+        <input
+          v-model="inputPosition"
+          type="text"
+        >
+        <div id="sendError" />
       </div>
       <div class="modalFootter">
-        <div class="register" @click="testPost">登録</div>
+        <div
+          class="register"
+          @click="testPost"
+        >
+          登録
+        </div>
       </div>
     </section>
-    <div v-if="modal" id="mask" @click="closeModal"></div>
+    <div
+      v-if="modal"
+      id="mask"
+      @click="closeModal"
+    />
   </div>
 </template>
 
 <script>
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { useAuthStore } from '@/stores/auth';
-import { computed } from 'vue';
+
 
 export default {
   name: 'App',
@@ -258,11 +344,6 @@ export default {
       moveMarker: null,
     }
   },
-  watch: {
-    state() {
-
-    }
-  },
   computed: {
     positions() {
       return this.authStore.positions;
@@ -275,6 +356,11 @@ export default {
         return num + 'px'
       }
     },
+  },
+  watch: {
+    state() {
+
+    }
   },
   created() {
     this.createPlayers();
@@ -356,6 +442,9 @@ export default {
         };
       });
     });
+  },
+  beforeUnmount() {
+    window.removeEventListener('mousemove', this.moveAtMarker);
   },
 
   methods: {
@@ -802,9 +891,6 @@ export default {
 
       ctx.setLineDash([]);
     },
-  },
-  beforeDestroy() {
-    window.removeEventListener('mousemove', this.moveAtMarker);
   },
 }
 </script>
