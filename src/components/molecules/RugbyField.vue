@@ -154,11 +154,13 @@ watch(() => props.showLines, () => {
 
 <style scoped>
 .rugby-field {
-  position: absolute;
-  top: 0;
-  left: 0;
   background-color: #0CD30C;
   z-index: 1;
   cursor: crosshair;
+  max-width: 100%;
+  max-height: 100%;
+  border: 2px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>

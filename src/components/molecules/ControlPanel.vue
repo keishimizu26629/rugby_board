@@ -1,150 +1,161 @@
 <template>
   <div class="control-panel">
-    <div class="panel-section">
-      <h3>設定</h3>
-      <div class="settings-group">
-        <label>
-          <input
-            type="checkbox"
-            :checked="boardSettings.showLines"
-            @change="$emit('update-board-settings', 'showLines', !boardSettings.showLines)"
-          >
-          白線表示
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            :checked="boardSettings.showNumbers"
-            @change="$emit('update-board-settings', 'showNumbers', !boardSettings.showNumbers)"
-          >
-          背番号表示
-        </label>
+    <!-- 上部：設定とクイックアクション -->
+    <div class="top-section">
+      <div class="settings-row">
+        <div class="toggle-group">
+          <label class="toggle-item">
+            <input
+              type="checkbox"
+              :checked="boardSettings.showLines"
+              @change="$emit('update-board-settings', 'showLines', !boardSettings.showLines)"
+            >
+            <span class="toggle-label">白線</span>
+          </label>
+          <label class="toggle-item">
+            <input
+              type="checkbox"
+              :checked="boardSettings.showNumbers"
+              @change="$emit('update-board-settings', 'showNumbers', !boardSettings.showNumbers)"
+            >
+            <span class="toggle-label">背番号</span>
+          </label>
+        </div>
       </div>
     </div>
 
-    <div class="panel-section">
-      <h3>描画</h3>
-      <div class="drawing-controls">
-        <div class="drawing-settings">
-          <div class="setting-group">
-            <label>色</label>
-            <select
-              :value="lineSettings.color"
-              class="select-box"
-              @change="$emit('update-line-settings', { color: ($event.target as HTMLSelectElement).value })"
-            >
-              <option value="white">
-                白
-              </option>
-              <option value="black">
-                黒
-              </option>
-              <option value="red">
-                赤
-              </option>
-              <option value="blue">
-                青
-              </option>
-              <option value="yellow">
-                黄
-              </option>
-              <option value="transparent">
-                消しゴム
-              </option>
-            </select>
-          </div>
-          <div class="setting-group">
-            <label>太さ</label>
-            <select
-              :value="lineSettings.width"
-              class="select-box"
-              @change="$emit('update-line-settings', { width: parseInt(($event.target as HTMLSelectElement).value) })"
-            >
-              <option value="2">
-                細
-              </option>
-              <option value="4">
-                中
-              </option>
-              <option value="6">
-                太
-              </option>
-            </select>
-          </div>
-        </div>
+    <!-- 描画設定：アイコンベース -->
+    <div class="drawing-section">
+      <h4 class="section-title">
+        描画設定
+      </h4>
+
+      <!-- 色選択 -->
+      <div class="color-palette">
         <button
-          class="btn btn-clear"
+          v-for="color in colorOptions"
+          :key="color.value"
+          :class="['color-btn', { active: lineSettings.color === color.value }]"
+          :style="{ backgroundColor: color.bg }"
+          :title="color.name"
+          @click="$emit('update-line-settings', { color: color.value })"
+        >
+          <span
+            v-if="color.icon"
+            class="color-icon"
+          >{{ color.icon }}</span>
+        </button>
+      </div>
+
+      <!-- 太さ選択 -->
+      <div class="thickness-selector">
+        <button
+          v-for="thickness in thicknessOptions"
+          :key="thickness.value"
+          :class="['thickness-btn', { active: lineSettings.width === thickness.value }]"
+          :title="thickness.name"
+          @click="$emit('update-line-settings', { width: thickness.value })"
+        >
+          <div
+            class="thickness-preview"
+            :style="{
+              width: thickness.preview + 'px',
+              height: thickness.preview + 'px',
+              backgroundColor: '#333'
+            }"
+          />
+        </button>
+      </div>
+
+      <!-- 描画アクション -->
+      <div class="drawing-actions">
+        <button
+          class="btn btn-clear-drawing"
+          title="描画クリア"
           @click="$emit('clear-drawing')"
         >
-          描画クリア
+          🧹 描画クリア
         </button>
       </div>
     </div>
 
-    <div class="panel-section">
-      <h3>マーカー</h3>
-      <div class="marker-controls">
-        <button
-          class="btn btn-add"
-          @click="$emit('add-marker')"
-        >
-          マーカー追加
-        </button>
-        <button
-          class="btn btn-remove"
-          @click="$emit('remove-marker')"
-        >
-          マーカー削除
-        </button>
+    <!-- アクションボタン：2カラムレイアウト -->
+    <div class="actions-section">
+      <div class="action-group">
+        <h4 class="section-title">
+          マーカー
+        </h4>
+        <div class="button-row">
+          <button
+            class="btn btn-add"
+            @click="$emit('add-marker')"
+          >
+            <span class="btn-icon">📍</span>
+            <span class="btn-text">追加</span>
+          </button>
+          <button
+            class="btn btn-remove"
+            @click="$emit('remove-marker')"
+          >
+            <span class="btn-icon">🗑️</span>
+            <span class="btn-text">削除</span>
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="panel-section">
-      <h3>プレイヤー</h3>
-      <div class="player-controls">
+      <div class="action-group">
+        <h4 class="section-title">
+          プレイヤー
+        </h4>
         <button
-          class="btn btn-clear"
+          class="btn btn-clear full-width"
           @click="$emit('clear-players')"
         >
-          プレイヤークリア
+          <span class="btn-icon">👥</span>
+          <span class="btn-text">クリア</span>
         </button>
       </div>
     </div>
 
-    <div class="panel-section">
-      <h3>ポジション</h3>
-      <div class="position-controls">
+    <!-- ポジション管理 -->
+    <div class="position-section">
+      <div class="position-header">
+        <h4 class="section-title">
+          ポジション
+        </h4>
         <button
-          class="btn btn-save"
+          class="btn btn-save compact"
           :disabled="isLoading"
           @click="$emit('save-position')"
         >
-          ポジション保存
+          💾 保存
         </button>
+      </div>
+
+      <div
+        v-if="positions.length > 0"
+        class="position-grid"
+      >
         <div
-          v-if="positions.length > 0"
-          class="position-list"
+          v-for="position in positions"
+          :key="position.name"
+          class="position-card"
+          :class="{ active: selectedPosition === position.name }"
         >
-          <div
-            v-for="position in positions"
-            :key="position.name"
-            class="position-item"
+          <button
+            class="position-name"
+            @click="$emit('apply-position', position.name)"
           >
-            <button
-              class="btn btn-apply"
-              :class="{ active: selectedPosition === position.name }"
-              @click="$emit('apply-position', position.name)"
-            >
-              {{ position.name }}
-            </button>
-            <button
-              class="btn btn-delete"
-              :disabled="isLoading"
-              @click="$emit('delete-position', position.name)"
-            >
-              削除
-            </button>
-          </div>
+            {{ position.name }}
+          </button>
+          <button
+            class="position-delete"
+            :disabled="isLoading"
+            title="削除"
+            @click="$emit('delete-position', position.name)"
+          >
+            ❌
+          </button>
         </div>
       </div>
     </div>
@@ -179,93 +190,200 @@ defineEmits<{
   'apply-position': [positionName: string];
   'delete-position': [positionName: string];
 }>();
+
+// 色オプション
+const colorOptions = [
+  { value: 'white', name: '白', bg: '#ffffff', icon: '' },
+  { value: 'black', name: '黒', bg: '#000000', icon: '' },
+  { value: 'red', name: '赤', bg: '#ff4444', icon: '' },
+  { value: 'blue', name: '青', bg: '#4444ff', icon: '' },
+  { value: 'yellow', name: '黄', bg: '#ffff44', icon: '' },
+  { value: 'transparent', name: '消しゴム', bg: '#f0f0f0', icon: '🧽' }
+];
+
+// 太さオプション
+const thicknessOptions = [
+  { value: 2, name: '細', preview: 2 },
+  { value: 4, name: '中', preview: 4 },
+  { value: 6, name: '太', preview: 6 }
+];
 </script>
 
 <style scoped>
 .control-panel {
-  width: 300px;
-  padding: 20px;
+  width: 320px;
+  padding: 16px;
   background: white;
   border-left: 1px solid #ddd;
-  overflow-y: auto;
-}
-
-.panel-section {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.panel-section:last-child {
-  border-bottom: none;
-}
-
-h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.settings-group {
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
-.settings-group label {
+/* 上部設定 */
+.top-section {
+  flex-shrink: 0;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.toggle-group {
+  display: flex;
+  gap: 16px;
+}
+
+.toggle-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-}
-
-.drawing-controls,
-.marker-controls,
-.player-controls,
-.position-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.drawing-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.setting-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.setting-group label {
   font-size: 14px;
+}
+
+.toggle-label {
+  color: #333;
   font-weight: 500;
+}
+
+.btn-clear-drawing {
+  padding: 8px 12px;
+  background: #ff5722;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.btn-clear-drawing:hover {
+  background: #e64a19;
+  transform: scale(1.05);
+}
+
+/* 描画設定 */
+.drawing-section {
+  flex-shrink: 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
   color: #333;
 }
 
-.select-box {
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
+.color-palette {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.color-btn {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 14px;
+}
+
+.color-btn.active {
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+  transform: scale(1.1);
+}
+
+.color-btn:hover {
+  transform: scale(1.05);
+}
+
+.thickness-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.thickness-btn {
+  width: 40px;
+  height: 32px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.thickness-btn.active {
+  border-color: #2196f3;
+  background: #e3f2fd;
+}
+
+.thickness-preview {
+  border-radius: 50%;
+}
+
+.drawing-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+/* アクションセクション */
+.actions-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.action-group {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
 }
 
 .btn {
-  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   background: white;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 12px;
+  flex: 1;
 }
 
 .btn:hover {
   background: #f5f5f5;
+  transform: translateY(-1px);
 }
 
 .btn:disabled {
@@ -273,10 +391,12 @@ h3 {
   cursor: not-allowed;
 }
 
-.btn-clear {
-  background: #ff5722;
-  color: white;
-  border-color: #ff5722;
+.btn-icon {
+  font-size: 14px;
+}
+
+.btn-text {
+  font-weight: 500;
 }
 
 .btn-add {
@@ -291,52 +411,108 @@ h3 {
   border-color: #f44336;
 }
 
+.btn-clear {
+  background: #ff9800;
+  color: white;
+  border-color: #ff9800;
+}
+
 .btn-save {
   background: #2196f3;
   color: white;
   border-color: #2196f3;
 }
 
-.btn-apply {
-  background: #9c27b0;
-  color: white;
-  border-color: #9c27b0;
-}
-
-.btn-apply.active {
-  background: #673ab7;
-  border-color: #673ab7;
-}
-
-.btn-delete {
-  background: #f44336;
-  color: white;
-  border-color: #f44336;
-  font-size: 12px;
-  padding: 4px 8px;
-}
-
-.btn-logout {
-  background: #607d8b;
-  color: white;
-  border-color: #607d8b;
+.full-width {
   width: 100%;
+  justify-content: center;
 }
 
-.position-list {
-  max-height: 200px;
-  overflow-y: auto;
+.compact {
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
-.position-item {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-  align-items: center;
-}
-
-.position-item .btn-apply {
+/* ポジション管理 */
+.position-section {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.position-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.position-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.position-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.position-card.active {
+  border-color: #9c27b0;
+  background: #f3e5f5;
+}
+
+.position-name {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.position-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.position-delete:hover {
+  opacity: 1;
+}
+
+/* スクロールバーのスタイリング */
+.position-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.position-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.position-grid::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.position-grid::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
 }
 </style>

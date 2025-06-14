@@ -28,88 +28,88 @@
           height="580"
           class="drawing-canvas"
         />
+
+        <!-- マーカー -->
+        <div
+          v-for="marker in markers"
+          :key="marker.index"
+          ref="element"
+          :style="{left: convertPx(marker.x), top: convertPx(marker.y)}"
+          class="marker"
+          @mousedown="touchstart($event, marker)"
+          @mouseup="touchend()"
+        />
+
+        <!-- プレイヤー表示 -->
+        <template v-if="selectedNumBool.value">
+          <div
+            v-for="player in players[0]"
+            :key="player.id"
+            class="player my-team drawPlayer"
+            @mousedown="testDrag"
+          >
+            {{ player.number }}
+          </div>
+          <div
+            v-for="player in players[1]"
+            :key="player.id"
+            class="player opponent drawPlayer"
+          >
+            {{ player.number }}
+          </div>
+        </template>
+        <template v-else>
+          <div
+            v-for="player in players[0]"
+            :key="player.id"
+            class="player my-team drawPlayer"
+          />
+          <div
+            v-for="player in players[1]"
+            :key="player.id"
+            class="player opponent drawPlayer"
+          />
+        </template>
+
+        <!-- ポイントマーカー -->
+        <div class="player points drawPlayer">
+          S
+        </div>
+        <div class="player points drawPlayer">
+          R
+        </div>
+        <div class="player points drawPlayer">
+          M
+        </div>
+        <div class="player points drawPlayer line-out">
+          L
+        </div>
+
+        <!-- ボール -->
+        <img
+          src="/ball.png"
+          class="player ball drawPlayer"
+        >
       </div>
 
-      <!-- マーカー -->
-      <div
-        v-for="marker in markers"
-        :key="marker.index"
-        ref="element"
-        :style="{left: convertPx(marker.x), top: convertPx(marker.y)}"
-        class="marker"
-        @mousedown="touchstart($event, marker)"
-        @mouseup="touchend()"
+      <!-- コントロールパネル -->
+      <ControlPanel
+        :board-settings="boardSettings"
+        :line-settings="lineSettings"
+        :positions="positions"
+        :selected-position="selectPosition"
+        :is-loading="isLoading"
+        @update-board-settings="updateBoardSettings"
+        @update-line-settings="updateLineSettings"
+        @add-marker="addSpot"
+        @remove-marker="removeMarker"
+        @clear-players="clearPlayer"
+        @clear-drawing="cleardrawPath"
+        @save-position="openModal"
+        @apply-position="applyPosition"
+        @delete-position="deletePosition"
       />
-
-      <!-- プレイヤー表示 -->
-      <template v-if="selectedNumBool.value">
-        <div
-          v-for="player in players[0]"
-          :key="player.id"
-          class="player my-team drawPlayer"
-          @mousedown="testDrag"
-        >
-          {{ player.number }}
-        </div>
-        <div
-          v-for="player in players[1]"
-          :key="player.id"
-          class="player opponent drawPlayer"
-        >
-          {{ player.number }}
-        </div>
-      </template>
-      <template v-else>
-        <div
-          v-for="player in players[0]"
-          :key="player.id"
-          class="player my-team drawPlayer"
-        />
-        <div
-          v-for="player in players[1]"
-          :key="player.id"
-          class="player opponent drawPlayer"
-        />
-      </template>
-
-      <!-- ポイントマーカー -->
-      <div class="player points drawPlayer">
-        S
-      </div>
-      <div class="player points drawPlayer">
-        R
-      </div>
-      <div class="player points drawPlayer">
-        M
-      </div>
-      <div class="player points drawPlayer line-out">
-        L
-      </div>
-
-      <!-- ボール -->
-      <img
-        src="/ball.png"
-        class="player ball drawPlayer"
-      >
     </div>
-
-    <!-- コントロールパネル -->
-    <ControlPanel
-      :board-settings="boardSettings"
-      :line-settings="lineSettings"
-      :positions="positions"
-      :selected-position="selectPosition"
-      :is-loading="isLoading"
-      @update-board-settings="updateBoardSettings"
-      @update-line-settings="updateLineSettings"
-      @add-marker="addSpot"
-      @remove-marker="removeMarker"
-      @clear-players="clearPlayer"
-      @clear-drawing="cleardrawPath"
-      @save-position="openModal"
-      @apply-position="applyPosition"
-      @delete-position="deletePosition"
-    />
 
     <!-- ポジション保存モーダル -->
     <section
@@ -806,24 +806,31 @@ export default {
 #container {
   display: flex;
   user-select: none;
-  padding: 20px;
-  gap: 20px;
+  height: calc(100vh - 60px);
+  overflow: hidden;
 }
 
 #board {
   position: relative;
-  width: 660px;
-  height: 580px;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  min-width: 0; /* フレックスアイテムの縮小を許可 */
 }
 
 .rugby-field {
-  position: absolute;
+  position: relative;
   z-index: 1;
-  background-color: rgb(12, 211, 12);
 }
 
 .drawing-canvas {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 20;
   background-color: transparent;
   cursor: crosshair;
