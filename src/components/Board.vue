@@ -267,17 +267,9 @@ export default {
     this.context = this.canvas.getContext('2d')
 
     window.addEventListener('mousemove', this.moveAtMarker);
+    window.addEventListener('resize', this.syncCanvasPosition);
 
-    // キャンバスに描画イベントを設定
-    this.canvas.addEventListener('mousedown', e => {
-      this.drawStart(e);
-    });
-    this.canvas.addEventListener('mousemove', e => {
-      this.draw(e);
-    });
-    this.canvas.addEventListener('mouseup', () => {
-      this.drawEnd();
-    });
+    // 描画イベントはRugbyFieldから受け取るため、直接のイベントリスナーは不要
 
     this.placement();
     this.drawAgain(this.context);
@@ -302,10 +294,12 @@ export default {
     // プレイヤーの初期配置とドラッグイベントを設定
     this.$nextTick(() => {
       this.initializePlayerDragEvents();
+      this.syncCanvasPosition();
     });
   },
   beforeUnmount() {
     window.removeEventListener('mousemove', this.moveAtMarker);
+    window.removeEventListener('resize', this.syncCanvasPosition);
   },
 
   methods: {
@@ -355,6 +349,29 @@ export default {
     applyPosition(positionName) {
       this.selectPosition = positionName;
       this.customPlacement(this.positions);
+    },
+
+    /**
+     * 描画キャンバスの位置をRugbyFieldと同期
+     */
+    syncCanvasPosition() {
+      const rugbyField = this.$refs.rugbyField.$refs.fieldCanvas;
+      const canvas = this.canvas;
+
+      if (rugbyField && canvas) {
+        const rugbyRect = rugbyField.getBoundingClientRect();
+        const boardRect = document.getElementById('board').getBoundingClientRect();
+
+        // RugbyFieldのボード内での相対位置を計算
+        const relativeLeft = rugbyRect.left - boardRect.left;
+        const relativeTop = rugbyRect.top - boardRect.top;
+
+        // 描画キャンバスを同じ位置に配置
+        canvas.style.left = relativeLeft + 'px';
+        canvas.style.top = relativeTop + 'px';
+        canvas.style.width = rugbyRect.width + 'px';
+        canvas.style.height = rugbyRect.height + 'px';
+      }
     },
 
     /**
@@ -424,16 +441,37 @@ export default {
       });
     },
 
+        /**
+     * キャンバス上の正確な座標を取得
+     */
+    getCanvasCoordinates(event) {
+      const canvas = this.canvas;
+      const rugbyField = this.$refs.rugbyField.$refs.fieldCanvas;
+
+      // RugbyFieldキャンバスの位置を基準とする
+      const rect = rugbyField.getBoundingClientRect();
+
+      // キャンバスのスケールを考慮した座標計算
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+      };
+    },
+
     /**
      * 描画機能
      */
     draw(e) {
-      let x = e.layerX;
-      let y = e.layerY;
-
       if(!this.isDraw) {
         return;
       }
+
+      const coords = this.getCanvasCoordinates(e);
+      const x = coords.x;
+      const y = coords.y;
 
       this.context.lineWidth = this.selectedLineWidth.value;
       this.context.strokeStyle = this.selectedColor.value;
@@ -465,8 +503,10 @@ export default {
         return;
       }
       this.isDraw = true;
-      this.gX = e.layerX;
-      this.gY = e.layerY;
+
+      const coords = this.getCanvasCoordinates(e);
+      this.gX = coords.x;
+      this.gY = coords.y;
     },
 
     drawEnd() {
@@ -853,12 +893,12 @@ export default {
 
 .drawing-canvas {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
   z-index: 20;
   background-color: transparent;
   cursor: crosshair;
+  pointer-events: none; /* マウスイベントをRugbyFieldに透過 */
 }
 
 .player {
