@@ -148,15 +148,6 @@
         </div>
       </div>
     </div>
-
-    <div class="panel-section">
-      <button
-        class="btn btn-logout"
-        @click="$emit('logout')"
-      >
-        ログアウト
-      </button>
-    </div>
   </div>
 </template>
 
@@ -187,7 +178,6 @@ defineEmits<{
   'save-position': [];
   'apply-position': [positionName: string];
   'delete-position': [positionName: string];
-  'logout': [];
 }>();
 </script>
 

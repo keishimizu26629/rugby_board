@@ -1,5 +1,18 @@
 <template>
   <div id="app">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <h1 class="app-title">
+        Rugby Board
+      </h1>
+      <UserMenu
+        :user-email="authStore.loginUser?.email"
+        :user-name="authStore.loginUser?.displayName"
+        @logout="logout"
+        @profile="handleProfile"
+      />
+    </header>
+
     <div id="container">
       <div id="board">
         <RugbyField
@@ -96,7 +109,6 @@
       @save-position="openModal"
       @apply-position="applyPosition"
       @delete-position="deletePosition"
-      @logout="logout"
     />
 
     <!-- ポジション保存モーダル -->
@@ -134,12 +146,14 @@
 import { useAuthStore } from '@/stores/auth';
 import ControlPanel from '@/components/molecules/ControlPanel.vue';
 import RugbyField from '@/components/molecules/RugbyField.vue';
+import UserMenu from '@/components/molecules/UserMenu.vue';
 
 export default {
   name: 'RugbyBoard',
   components: {
     ControlPanel,
-    RugbyField
+    RugbyField,
+    UserMenu
   },
   setup() {
     const authStore = useAuthStore();
@@ -464,6 +478,14 @@ export default {
     },
 
     /**
+     * プロフィール設定の処理
+     */
+    handleProfile() {
+      // 将来的にプロフィール設定画面への遷移などを実装
+      console.log('プロフィール設定が選択されました');
+    },
+
+    /**
      * プレイヤー配置オブジェクトに変換
      */
     transformObject() {
@@ -752,10 +774,40 @@ export default {
 </script>
 
 <style scoped>
+#app {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px;
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 #container {
   display: flex;
   user-select: none;
-  margin: 5px;
+  padding: 20px;
+  gap: 20px;
 }
 
 #board {
