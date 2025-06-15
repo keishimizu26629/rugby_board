@@ -1,9 +1,22 @@
-import { ref, inject } from 'vue';
+import { ref, inject, computed } from 'vue';
 import type { BoardRepository } from '@/types/boardRepository';
 import type { Player, Position, Marker, BoardSettings, LineSettings } from '@/types/rugby';
+import { useMultiSelect } from './useMultiSelect';
 
 export function useBoard() {
   const boardRepo = inject<BoardRepository>('boardRepo')!;
+
+  // 複数選択機能の統合
+  const {
+    selectedPlayers,
+    isMultiSelectKey,
+    selectPlayer,
+    clearSelection,
+    isPlayerSelected,
+    getSelectionOrder,
+    isMultiSelected,
+    selectedCount,
+  } = useMultiSelect();
 
   const players = ref<Player[][]>([[], []]);
   const markers = ref<Marker[]>([]);
@@ -20,25 +33,148 @@ export function useBoard() {
   const isLoading = ref(false);
   const error = ref<string>('');
 
+  // ドラッグ開始時の初期位置を保存
+  const initialPositions = ref<Map<string, { x: number; y: number }>>(new Map());
+
   const addPlayer = (team: 0 | 1, number: number): void => {
     const newPlayer: Player = {
       id: `${team}-${number}-${Date.now()}`,
       number,
       team: team === 0 ? 'my-team' : 'opponent',
       x: 100 + Math.random() * 400,
-      y: 100 + Math.random() * 300
+      y: 100 + Math.random() * 300,
+      zIndex: 10
     };
 
     players.value[team].push(newPlayer);
   };
 
-  const movePlayer = (playerId: string, x: number, y: number): void => {
+  /**
+   * プレイヤーのクリック処理
+   * @param playerId - プレイヤーID
+   * @param isMultiSelect - 複数選択モードかどうか
+   */
+  const handlePlayerClick = (playerId: string, isMultiSelect: boolean): void => {
+    console.log('useBoard - handlePlayerClick called:', {
+      playerId,
+      isMultiSelect
+    });
+
+    const { teamIndex, playerIndex } = findPlayerIndices(playerId);
+    console.log('Player indices found:', { teamIndex, playerIndex });
+
+    if (teamIndex !== -1 && playerIndex !== -1) {
+      // 修飾キーの状態を正しく使用
+      selectPlayer(playerId, teamIndex, playerIndex, isMultiSelect);
+    } else {
+      console.warn('Player not found:', playerId);
+    }
+  };
+
+  /**
+   * プレイヤーのインデックスを取得
+   * @param playerId - プレイヤーID
+   * @returns チームインデックスとプレイヤーインデックス
+   */
+  const findPlayerIndices = (playerId: string): { teamIndex: number; playerIndex: number } => {
+    for (let teamIndex = 0; teamIndex < players.value.length; teamIndex++) {
+      const playerIndex = players.value[teamIndex].findIndex(p => p.id === playerId);
+      if (playerIndex > -1) {
+        return { teamIndex, playerIndex };
+      }
+    }
+    return { teamIndex: -1, playerIndex: -1 };
+  };
+
+  /**
+   * プレイヤーをIDで検索
+   * @param playerId - プレイヤーID
+   * @returns プレイヤーオブジェクト
+   */
+  const findPlayerById = (playerId: string): Player | undefined => {
     for (const team of players.value) {
       const player = team.find(p => p.id === playerId);
-      if (player) {
-        player.x = x;
-        player.y = y;
-        break;
+      if (player) return player;
+    }
+    return undefined;
+  };
+
+  /**
+   * 複数選択したプレイヤーのドラッグを開始
+   * @param draggedPlayerId - ドラッグされたプレイヤーのID
+   */
+  const startMultiDrag = (draggedPlayerId: string): void => {
+    try {
+      // 選択された全プレイヤーの初期位置を保存
+      selectedPlayers.value.forEach((selectedPlayer) => {
+        const player = findPlayerById(selectedPlayer.id);
+        if (player) {
+          initialPositions.value.set(selectedPlayer.id, { x: player.x, y: player.y });
+        }
+      });
+
+      // ドラッグされたプレイヤーが選択されていない場合は単一選択
+      if (!isPlayerSelected(draggedPlayerId)) {
+        const { teamIndex, playerIndex } = findPlayerIndices(draggedPlayerId);
+        if (teamIndex !== -1 && playerIndex !== -1) {
+          selectPlayer(draggedPlayerId, teamIndex, playerIndex, false);
+          const draggedPlayer = findPlayerById(draggedPlayerId);
+          if (draggedPlayer) {
+            initialPositions.value.set(draggedPlayerId, { x: draggedPlayer.x, y: draggedPlayer.y });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error starting multi drag:', error);
+    }
+  };
+
+  /**
+   * 選択された複数プレイヤーの同時移動
+   * @param draggedPlayerId - ドラッグされたプレイヤーのID
+   * @param newX - 新しいX座標
+   * @param newY - 新しいY座標
+   */
+  const moveSelectedPlayers = (draggedPlayerId: string, newX: number, newY: number): void => {
+    try {
+      const draggedInitialPos = initialPositions.value.get(draggedPlayerId);
+      if (!draggedInitialPos) {
+        console.warn('Initial position not found for dragged player');
+        return;
+      }
+
+      // ドラッグ開始時の位置を基準とした差分計算
+      const deltaX = newX - draggedInitialPos.x;
+      const deltaY = newY - draggedInitialPos.y;
+
+      // 選択された全プレイヤーを相対移動
+      selectedPlayers.value.forEach((selectedPlayer) => {
+        const player = findPlayerById(selectedPlayer.id);
+        const initialPos = initialPositions.value.get(selectedPlayer.id);
+
+        if (player && initialPos) {
+          player.x = initialPos.x + deltaX;
+          player.y = initialPos.y + deltaY;
+        }
+      });
+    } catch (error) {
+      console.error('Error moving selected players:', error);
+    }
+  };
+
+  const movePlayer = (playerId: string, x: number, y: number): void => {
+    if (selectedCount.value > 1) {
+      // 複数選択時は同時移動
+      moveSelectedPlayers(playerId, x, y);
+    } else {
+      // 単一プレイヤーの移動
+      for (const team of players.value) {
+        const player = team.find(p => p.id === playerId);
+        if (player) {
+          player.x = x;
+          player.y = y;
+          break;
+        }
       }
     }
   };
@@ -55,6 +191,8 @@ export function useBoard() {
 
   const clearPlayers = (): void => {
     players.value = [[], []];
+    clearSelection();
+    initialPositions.value.clear();
   };
 
   const addMarker = (x: number, y: number): void => {
@@ -150,6 +288,7 @@ export function useBoard() {
 
       players.value = [myTeamPlayers, opponentPlayers];
       selectedPosition.value = positionName;
+      clearSelection();
     }
   };
 
@@ -165,8 +304,20 @@ export function useBoard() {
     error.value = '';
   };
 
+  // 選択状態を含むプレイヤー情報を計算
+  const playersWithSelection = computed(() => {
+    return players.value.map(team =>
+      team.map(player => ({
+        ...player,
+        isSelected: isPlayerSelected(player.id || ''),
+        selectionOrder: getSelectionOrder(player.id || '')
+      }))
+    );
+  });
+
   return {
     players,
+    playersWithSelection,
     markers,
     positions,
     selectedPosition,
@@ -174,6 +325,15 @@ export function useBoard() {
     lineSettings,
     isLoading,
     error,
+    // 複数選択関連
+    selectedPlayers,
+    selectedCount,
+    isMultiSelected,
+    handlePlayerClick,
+    clearSelection,
+    startMultiDrag,
+    moveSelectedPlayers,
+    // 既存の機能
     addPlayer,
     movePlayer,
     removePlayer,

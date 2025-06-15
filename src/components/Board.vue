@@ -172,6 +172,12 @@ export default {
       ],
       selectedPlayers: [], // 選択されたプレイヤーの配列
 
+      // 複数選択機能の状態管理
+      isCtrlPressed: false,   // Ctrlキーの押下状態
+      isMetaPressed: false,   // Metaキーの押下状態
+      selectionCounter: 0,    // 選択順序カウンター
+      initialPositions: {},   // ドラッグ開始時の選択プレイヤーの初期位置
+
       // 描画関連データ
       gX: 0,              // 描画開始X座標
       gY: 0,              // 描画開始Y座標
@@ -325,17 +331,41 @@ export default {
       this.authStore.fetchData();
     }
 
-    // Controlキーのイベントは現在不要なためコメントアウト
-    // window.addEventListener('keydown', e => {
-    //   if(e.key == 'Control') {
-    //     this.onPressControlKey = true
-    //   }
-    // });
-    // window.addEventListener('keyup', e => {
-    //   if(e.key == 'Control') {
-    //     this.onPressControlKey = false
-    //   }
-    // });
+    // キーイベントリスナーを追加（複数選択機能用）
+    const handleKeyDown = (event) => {
+      // 修飾キー状態を更新
+      if (event.key === 'Control') {
+        this.isCtrlPressed = true;
+      }
+      if (event.key === 'Meta' || event.key === 'Cmd') {
+        this.isMetaPressed = true;
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      // 修飾キー状態を解除
+      if (event.key === 'Control') {
+        this.isCtrlPressed = false;
+      }
+      if (event.key === 'Meta' || event.key === 'Cmd') {
+        this.isMetaPressed = false;
+      }
+    };
+
+    // windowにキーイベントリスナーを追加
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+
+    // クリーンアップ用に保存
+    this._boardKeyListeners = { handleKeyDown, handleKeyUp };
+
+    // 空白クリックで選択解除
+    document.getElementById("board").addEventListener("click", (event) => {
+      // ボードの背景がクリックされた場合のみ選択解除
+      if (event.target.id === "board") {
+        this.clearSelection();
+      }
+    });
 
     // DOM更新完了後にプレイヤーの配置とドラッグイベントを設定
     this.$nextTick(() => {
@@ -350,6 +380,13 @@ export default {
   beforeUnmount() {
     window.removeEventListener('mousemove', this.moveAtMarker);
     window.removeEventListener('resize', this.syncCanvasPosition);
+
+    // キーイベントリスナーをクリーンアップ
+    if (this._boardKeyListeners) {
+      window.removeEventListener('keydown', this._boardKeyListeners.handleKeyDown, true);
+      window.removeEventListener('keyup', this._boardKeyListeners.handleKeyUp, true);
+      delete this._boardKeyListeners;
+    }
   },
 
   methods: {
@@ -479,6 +516,22 @@ export default {
             // マウスダウンイベントハンドラーを作成
             const mousedownHandler = (event) => {
               event.preventDefault(); // デフォルトのドラッグ動作を無効化
+
+              // 修飾キーの状態を確認（複数選択判定）
+              const isMultiSelect =
+                this.isCtrlPressed || this.isMetaPressed || event.ctrlKey || event.metaKey;
+
+              // プレイヤーIDを生成（teamIndex_playerIndex形式）
+              const playerId = `${i}_${index}`;
+
+
+
+              // 選択処理を実行
+              this.handlePlayerSelection(playerId, i, index, isMultiSelect);
+
+              // 複数選択のドラッグ開始処理
+              this.startMultiDrag(playerId);
+
               this.isMove = true; // 移動中フラグを設定
 
               // 座標計算のため各要素の位置を取得
@@ -498,9 +551,15 @@ export default {
                 const newX = clientX - boardRect.left - shiftX;
                 const newY = clientY - boardRect.top - shiftY;
 
-                // プレイヤー要素の位置を更新
-                player.style.left = newX + 'px';
-                player.style.top = newY + 'px';
+                // 複数選択時は同時移動、単一選択時は通常移動
+                if (this.selectedPlayers.length > 1) {
+                  // 複数選択プレイヤーの同時移動
+                  this.moveSelectedPlayers(playerId, newX, newY);
+                } else {
+                  // 単一プレイヤーの移動
+                  player.style.left = newX + 'px';
+                  player.style.top = newY + 'px';
+                }
               };
 
               // マウス移動時のイベントハンドラー
@@ -523,7 +582,21 @@ export default {
                 // 最終位置を計算してデータに保存
                 const finalX = e.clientX - boardRect.left - shiftX;
                 const finalY = e.clientY - boardRect.top - shiftY;
-                this.measuresReload(finalX, finalY, i, index);
+
+                if (this.selectedPlayers.length > 1) {
+                  // 複数選択時：最終的な全プレイヤーの位置をLocalStorageに保存
+                  this.selectedPlayers.forEach(selectedPlayer => {
+                    const { teamIndex, playerIndex } = this.findPlayerIndices(selectedPlayer.id);
+                    if (teamIndex !== -1 && playerIndex !== -1 && this.players[teamIndex] && this.players[teamIndex][playerIndex]) {
+                      // 既にmoveSelectedPlayersで更新済みなので、LocalStorageに保存
+                      localStorage.setItem('players', JSON.stringify(this.players));
+                    }
+                  });
+
+                } else {
+                  // 単一プレイヤーの位置保存
+                  this.measuresReload(finalX, finalY, i, index);
+                }
               };
 
               // グローバルマウスアップイベントを登録
@@ -677,7 +750,7 @@ export default {
      */
     handleProfile() {
       // 将来的にプロフィール設定画面への遷移などを実装
-      console.log('プロフィール設定が選択されました');
+
     },
 
     /**
@@ -775,91 +848,6 @@ export default {
       this.$nextTick(() => {
         this.initializePlayerDragEvents();
       });
-    },
-
-    /**
-     * プレイヤーを作成（縦並び配置でパネル干渉を回避）
-     * - チーム別に列を分けて配置
-     * - 右側コントロールパネルとの重複を避ける
-     */
-    createPlayers() {
-      // 配置パラメータの定義
-      const playerSize = 24;         // プレイヤーサイズ（24px × 24px）
-      const margin = 5;              // プレイヤー間のマージン
-      const panelWidth = 320;        // 右側コントロールパネルの幅
-      const safetyMargin = 60;       // パネルとの安全マージン
-      const additionalOffset = 50;   // 追加のオフセット（ユーザー調整値）
-
-      // 画面幅を取得してコントロールパネルを考慮した配置位置を計算
-      const windowWidth = window.innerWidth;
-      const startX = windowWidth - panelWidth - safetyMargin - additionalOffset;
-      const startY = 50; // 上端からの開始位置
-
-      // 2チーム分のプレイヤーを作成（j=0:自チーム, j=1:相手チーム）
-      for (let j = 0; j < 2; j++) {
-        let players = []; // チーム内プレイヤー配列
-
-        // 各チーム15人のプレイヤーを作成
-        for (let i = 1; i <= 15; i++) {
-          let player = {
-            // X座標：チーム別に列を分ける（左列・右列）
-            x: startX + (j * (playerSize + margin) * 2),
-            // Y座標：背番号順に縦並び（1番が一番上）
-            y: startY + ((i - 1) * (playerSize + margin)),
-            number: i,                    // 背番号（1〜15）
-            zIndex: i * 10 + j * 150     // 重ね順（背番号×10 + チーム×150）
-          }
-          players.push(player);
-        }
-        this.players.push(players); // チーム配列をメインデータに追加
-      }
-
-      // ボール配置（プレイヤー列の下部）
-      let ball = [{
-        x: startX + 30,                                    // プレイヤー列の中央付近
-        y: startY + (15 * (playerSize + margin)) + 20,     // 15人目の下 + 20px
-        number: 0,                                         // ボールの識別番号
-        zIndex: 310                                        // 重ね順（プレイヤーより上）
-      }];
-      this.players.push(ball); // ボールをプレイヤー配列に追加（インデックス2）
-
-      // ポイントマーカー配置（ボールの下部）
-      let points = [];
-      const pointStartY = startY + (15 * (playerSize + margin)) + 60; // ボールの下に配置
-
-      // 横並びのポイントマーカー（S, R, M）を作成
-      for (let i = 0; i < 3; i++) {
-        let point = {
-          x: startX + i * 35,           // 35px間隔で横並び
-          y: pointStartY,               // 同じY座標で横一列
-          number: i,                    // ポイント番号（0:S, 1:R, 2:M）
-          zIndex: 320 + i * 10         // 重ね順
-        };
-        points.push(point)
-      }
-
-      // ラインアウトマーカー（L）を作成（下の行）
-      let point = {
-        x: startX,                      // 左端に配置
-        y: pointStartY + 35,            // 下の行（35px下）
-        number: 3,                      // ラインアウトの識別番号
-        zIndex: 350                     // 最前面
-      }
-      points.push(point)
-      this.players.push(points); // ポイントマーカー配列を追加（インデックス3）
-    },
-
-    /**
-     * 初期配置を設定
-     * LocalStorageに保存されたプレイヤー配置データを復元
-     * ページリロード時に前回の配置を復元するために使用
-     */
-    placement() {
-      const clone_players = localStorage.getItem('players');
-      if (clone_players) {
-        // JSON文字列をオブジェクトに変換してプレイヤー配置を復元
-        this.players = JSON.parse(clone_players);
-      }
     },
 
     /**
@@ -1045,6 +1033,308 @@ export default {
         this.moveMarker = null;
       }
     },
+
+    // ===== 複数選択機能のメソッド =====
+
+    /**
+     * プレイヤー選択処理
+     * @param {string} playerId - プレイヤーID
+     * @param {number} teamIndex - チームインデックス
+     * @param {number} playerIndex - プレイヤーインデックス
+     * @param {boolean} isMultiSelect - 複数選択モードかどうか
+     */
+    handlePlayerSelection(playerId, teamIndex, playerIndex, isMultiSelect) {
+      if (!isMultiSelect) {
+        // 単一選択時：既存の選択はクリアせず、新しいプレイヤーを追加選択
+        this.selectPlayer(playerId, teamIndex, playerIndex);
+      } else {
+        // 複数選択：トグル動作
+        this.togglePlayerSelection(playerId, teamIndex, playerIndex);
+      }
+
+      // 選択状態の視覚的更新
+      this.updatePlayerVisualSelection();
+    },
+
+    /**
+     * プレイヤーを選択状態にする
+     */
+    selectPlayer(playerId, teamIndex, playerIndex) {
+      // 既に選択されているかチェック
+      const existingIndex = this.selectedPlayers.findIndex(p => p.id === playerId);
+      if (existingIndex === -1) {
+        this.selectionCounter++;
+        this.selectedPlayers.push({
+          id: playerId,
+          teamIndex,
+          playerIndex,
+          order: this.selectionCounter
+        });
+
+
+      }
+    },
+
+    /**
+     * プレイヤーの選択状態をトグル
+     */
+    togglePlayerSelection(playerId, teamIndex, playerIndex) {
+      const existingIndex = this.selectedPlayers.findIndex(p => p.id === playerId);
+
+      if (existingIndex > -1) {
+        // 選択解除
+        this.selectedPlayers.splice(existingIndex, 1);
+
+      } else {
+        // 選択追加
+        this.selectPlayer(playerId, teamIndex, playerIndex);
+      }
+    },
+
+    /**
+     * 全選択解除
+     */
+    clearSelection() {
+
+      this.selectedPlayers = [];
+      this.selectionCounter = 0;
+      this.updatePlayerVisualSelection();
+    },
+
+    /**
+     * プレイヤーが選択されているかチェック
+     */
+    isPlayerSelected(playerId) {
+      return this.selectedPlayers.some(p => p.id === playerId);
+    },
+
+    /**
+     * 選択順序を取得
+     */
+    getSelectionOrder(playerId) {
+      const player = this.selectedPlayers.find(p => p.id === playerId);
+      return player ? player.order : 0;
+    },
+
+    /**
+     * 選択状態の視覚的更新
+     */
+    updatePlayerVisualSelection() {
+
+
+      const teams = this.teams;
+
+      teams.forEach((team, teamIndex) => {
+        let players = [...document.getElementsByClassName(team.name)];
+
+        players.forEach((playerElement, playerIndex) => {
+          const playerId = `${teamIndex}_${playerIndex}`;
+          const isSelected = this.isPlayerSelected(playerId);
+          const selectionOrder = this.getSelectionOrder(playerId);
+          const isMultiSelected = this.selectedPlayers.length > 1 && isSelected;
+
+          // CSSクラスを更新
+          playerElement.classList.toggle('selected', isSelected && !isMultiSelected);
+          playerElement.classList.toggle('multi-selected', isMultiSelected);
+
+          // 選択順序をdata属性として設定
+          if (isSelected) {
+            playerElement.setAttribute('data-selection-order', selectionOrder.toString());
+
+          } else {
+            playerElement.removeAttribute('data-selection-order');
+          }
+        });
+      });
+    },
+
+    /**
+     * 複数選択のドラッグ開始処理
+     * 選択された全プレイヤーの初期位置を記録
+     * @param {string} draggedPlayerId - ドラッグされたプレイヤーID
+     */
+    startMultiDrag(draggedPlayerId) {
+
+
+      // 選択された全プレイヤーの初期位置を保存
+      this.initialPositions = {};
+
+      this.selectedPlayers.forEach(selectedPlayer => {
+        const { teamIndex, playerIndex } = this.findPlayerIndices(selectedPlayer.id);
+        if (teamIndex !== -1 && playerIndex !== -1 && this.players[teamIndex] && this.players[teamIndex][playerIndex]) {
+          this.initialPositions[selectedPlayer.id] = {
+            x: this.players[teamIndex][playerIndex].x,
+            y: this.players[teamIndex][playerIndex].y
+          };
+
+        }
+      });
+
+      // ドラッグされたプレイヤーが選択されていない場合は追加選択
+      if (!this.isPlayerSelected(draggedPlayerId)) {
+        const { teamIndex, playerIndex } = this.findPlayerIndices(draggedPlayerId);
+        if (teamIndex !== -1 && playerIndex !== -1) {
+
+          this.selectPlayer(draggedPlayerId, teamIndex, playerIndex);
+
+          // 新しく追加されたプレイヤーの初期位置も保存
+          if (this.players[teamIndex] && this.players[teamIndex][playerIndex]) {
+            this.initialPositions[draggedPlayerId] = {
+              x: this.players[teamIndex][playerIndex].x,
+              y: this.players[teamIndex][playerIndex].y
+            };
+          }
+
+          // 選択状態の視覚更新
+          this.updatePlayerVisualSelection();
+        }
+      }
+    },
+
+    /**
+     * プレイヤーのインデックスを検索
+     * @param {string} playerId - プレイヤーID
+     * @returns {Object} チームインデックスとプレイヤーインデックス
+     */
+    findPlayerIndices(playerId) {
+      const [teamIndex, playerIndex] = playerId.split('_').map(Number);
+      return { teamIndex, playerIndex };
+    },
+
+    /**
+     * 複数選択プレイヤーの同時移動
+     * @param {string} draggedPlayerId - ドラッグされたプレイヤーID
+     * @param {number} newX - 新しいX座標
+     * @param {number} newY - 新しいY座標
+     */
+    moveSelectedPlayers(draggedPlayerId, newX, newY) {
+      if (this.selectedPlayers.length <= 1) {
+        return; // 複数選択でない場合は通常の移動
+      }
+
+
+
+      const draggedInitialPos = this.initialPositions[draggedPlayerId];
+      if (!draggedInitialPos) {
+
+        return;
+      }
+
+      // ドラッグされたプレイヤーの移動量を計算
+      const deltaX = newX - draggedInitialPos.x;
+      const deltaY = newY - draggedInitialPos.y;
+
+
+
+      // 選択された全プレイヤーを相対移動
+      this.selectedPlayers.forEach(selectedPlayer => {
+        const { teamIndex, playerIndex } = this.findPlayerIndices(selectedPlayer.id);
+        const initialPos = this.initialPositions[selectedPlayer.id];
+
+        if (teamIndex !== -1 && playerIndex !== -1 && initialPos && this.players[teamIndex] && this.players[teamIndex][playerIndex]) {
+          const newPlayerX = initialPos.x + deltaX;
+          const newPlayerY = initialPos.y + deltaY;
+
+          // プレイヤーデータを更新
+          this.players[teamIndex][playerIndex].x = newPlayerX;
+          this.players[teamIndex][playerIndex].y = newPlayerY;
+
+          // DOM要素の位置も更新
+          const playerElements = [...document.getElementsByClassName(this.teams[teamIndex].name)];
+          if (playerElements[playerIndex]) {
+            playerElements[playerIndex].style.left = newPlayerX + 'px';
+            playerElements[playerIndex].style.top = newPlayerY + 'px';
+          }
+
+
+        }
+      });
+    },
+
+    /**
+     * プレイヤーを作成（縦並び配置でパネル干渉を回避）
+     * - チーム別に列を分けて配置
+     * - 右側コントロールパネルとの重複を避ける
+     */
+    createPlayers() {
+      // 配置パラメータの定義
+      const playerSize = 24;         // プレイヤーサイズ（24px × 24px）
+      const margin = 5;              // プレイヤー間のマージン
+      const panelWidth = 320;        // 右側コントロールパネルの幅
+      const safetyMargin = 60;       // パネルとの安全マージン
+      const additionalOffset = 50;   // 追加のオフセット（ユーザー調整値）
+
+      // 画面幅を取得してコントロールパネルを考慮した配置位置を計算
+      const windowWidth = window.innerWidth;
+      const startX = windowWidth - panelWidth - safetyMargin - additionalOffset;
+      const startY = 50; // 上端からの開始位置
+
+      // 2チーム分のプレイヤーを作成（j=0:自チーム, j=1:相手チーム）
+      for (let j = 0; j < 2; j++) {
+        let players = []; // チーム内プレイヤー配列
+
+        // 各チーム15人のプレイヤーを作成
+        for (let i = 1; i <= 15; i++) {
+          let player = {
+            // X座標：チーム別に列を分ける（左列・右列）
+            x: startX + (j * (playerSize + margin) * 2),
+            // Y座標：背番号順に縦並び（1番が一番上）
+            y: startY + ((i - 1) * (playerSize + margin)),
+            number: i,                    // 背番号（1〜15）
+            zIndex: i * 10 + j * 150     // 重ね順（背番号×10 + チーム×150）
+          }
+          players.push(player);
+        }
+        this.players.push(players); // チーム配列をメインデータに追加
+      }
+
+      // ボール配置（プレイヤー列の下部）
+      let ball = [{
+        x: startX + 30,                                    // プレイヤー列の中央付近
+        y: startY + (15 * (playerSize + margin)) + 20,     // 15人目の下 + 20px
+        number: 0,                                         // ボールの識別番号
+        zIndex: 310                                        // 重ね順（プレイヤーより上）
+      }];
+      this.players.push(ball); // ボールをプレイヤー配列に追加（インデックス2）
+
+      // ポイントマーカー配置（ボールの下部）
+      let points = [];
+      const pointStartY = startY + (15 * (playerSize + margin)) + 60; // ボールの下に配置
+
+      // 横並びのポイントマーカー（S, R, M）を作成
+      for (let i = 0; i < 3; i++) {
+        let point = {
+          x: startX + i * 35,           // 35px間隔で横並び
+          y: pointStartY,               // 同じY座標で横一列
+          number: i,                    // ポイント番号（0:S, 1:R, 2:M）
+          zIndex: 320 + i * 10         // 重ね順
+        };
+        points.push(point)
+      }
+
+      // ラインアウトマーカー（L）を作成（下の行）
+      let point = {
+        x: startX,                      // 左端に配置
+        y: pointStartY + 35,            // 下の行（35px下）
+        number: 3,                      // ラインアウトの識別番号
+        zIndex: 350                     // 最前面
+      }
+      points.push(point)
+      this.players.push(points); // ポイントマーカー配列を追加（インデックス3）
+    },
+
+    /**
+     * 初期配置を設定
+     * LocalStorageに保存されたプレイヤー配置データを復元
+     * ページリロード時に前回の配置を復元するために使用
+     */
+    placement() {
+      const clone_players = localStorage.getItem('players');
+      if (clone_players) {
+        // JSON文字列をオブジェクトに変換してプレイヤー配置を復元
+        this.players = JSON.parse(clone_players);
+      }
+    },
   },
 }
 </script>
@@ -1140,7 +1430,7 @@ export default {
 }
 
 .opponent:hover {
-  background: rgb(107, 107, 107);
+  background: rgb(56, 56, 56);
 }
 
 .points {
@@ -1260,5 +1550,76 @@ export default {
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
+}
+
+/* ===== 複数選択機能のスタイル ===== */
+
+/* 単一選択状態（デザイン変化なし） */
+.player.selected {
+  /* 単一選択時は特別なスタイルを適用しない */
+}
+
+/* 複数選択状態（旧単一選択のデザインを適用） */
+.player.multi-selected {
+  border: 3px solid #ffd700 !important;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.3), 0 0 15px rgba(255, 215, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  z-index: 25 !important;
+}
+
+/* 複数選択時のチェックマーク */
+.player.multi-selected::after {
+  content: "✓";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 30;
+  animation: checkmarkAppear 0.3s ease-out;
+}
+
+/* 複数選択の順序バッジ */
+.player.multi-selected::before {
+  content: attr(data-selection-order);
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 31;
+}
+
+/* アニメーション */
+@keyframes checkmarkAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

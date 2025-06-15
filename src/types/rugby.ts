@@ -3,7 +3,19 @@ export interface Player {
   number: number;
   x: number;
   y: number;
-  zIndex: number;
+  zIndex?: number;
+  team?: 'my-team' | 'opponent';
+  isSelected?: boolean;
+}
+
+/**
+ * 選択されたプレイヤーの情報
+ */
+export interface SelectedPlayer {
+  id: string;
+  teamIndex: number;
+  playerIndex: number;
+  order: number;
 }
 
 export interface Team {
@@ -12,7 +24,7 @@ export interface Team {
 
 export interface Position {
   name: string;
-  position: Record<string | number, Record<string | number, Player>>;
+  players: Player[];
 }
 
 export interface Marker {

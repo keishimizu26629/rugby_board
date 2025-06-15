@@ -1,6 +1,6 @@
 <template>
   <div class="rugby-board">
-    <div class="board-container">
+    <div class="board-container" @click="handleBoardClick">
       <div class="canvas-container">
         <RugbyField
           :show-lines="boardSettings.showLines"
@@ -16,7 +16,7 @@
 
       <!-- プレイヤーピースの表示 -->
       <PlayerPiece
-        v-for="player in allPlayers"
+        v-for="player in allPlayersWithSelection"
         :id="player.id"
         :key="player.id"
         :number="player.number"
@@ -24,8 +24,12 @@
         :x="player.x"
         :y="player.y"
         :show-number="boardSettings.showNumbers"
+        :is-selected="player.isSelected && !player.isMultiSelected"
+        :is-multi-selected="player.isMultiSelected"
+        :selection-order="player.selectionOrder"
         @mousedown="handlePlayerMouseDown"
         @mouseup="handlePlayerMouseUp"
+        @click="handlePlayerClick"
       />
 
       <!-- マーカーの表示 -->
@@ -72,8 +76,9 @@ defineOptions({
   name: 'RugbyBoard'
 });
 
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 import { useBoard } from '@/composables/useBoard';
+import { useMultiSelect } from '@/composables/useMultiSelect';
 import { useAuth } from '@/composables/useAuth';
 import { useUserStore } from '@/stores/user';
 import { useDragAndDrop } from '@/composables/useDragAndDrop';
@@ -90,12 +95,19 @@ import PositionModal from '@/components/molecules/PositionModal.vue';
 // Composables
 const {
   players,
+  playersWithSelection,
   markers,
   positions,
   selectedPosition,
   boardSettings,
   lineSettings,
   isLoading,
+  selectedPlayers,
+  selectedCount,
+  isMultiSelected,
+  handlePlayerClick,
+  clearSelection,
+  startMultiDrag,
   movePlayer,
   clearPlayers,
   addMarker,
@@ -135,8 +147,17 @@ const allPlayers = computed(() => {
   return [...players.value[0], ...players.value[1]];
 });
 
+const allPlayersWithSelection = computed(() => {
+  const flatPlayers = [...playersWithSelection.value[0], ...playersWithSelection.value[1]];
+  return flatPlayers.map(player => ({
+    ...player,
+    isMultiSelected: selectedCount.value > 1 && player.isSelected
+  }));
+});
+
 // Event Handlers
 const handlePlayerMouseDown = (event: MouseEvent, playerId: string) => {
+  startMultiDrag(playerId);
   startDrag(event, playerId, 'player');
 };
 
@@ -250,18 +271,72 @@ const handleMouseMove = (event: MouseEvent) => {
   }
 };
 
+// Board click handler - 空白クリックで選択解除
+const handleBoardClick = (event: MouseEvent) => {
+  // ボードの背景がクリックされた場合のみ選択解除
+  if (event.target === event.currentTarget) {
+    clearSelection();
+  }
+};
+
+// 直接useMultiSelectを使用してonMountedを実行させる
+const multiSelectDebug = useMultiSelect();
+
+// 最もシンプルなデバッグ - RugbyBoardのマウント確認
+console.log('RugbyBoard script setup executed');
+
 // Lifecycle
 onMounted(async () => {
+  console.log('RugbyBoard onMounted called');
+
   if (userStore.currentUser?.uid) {
     await loadPositions(userStore.currentUser.uid);
   }
 
-  // イベントリスナーを追加
+  // マウスムーブイベントリスナーを追加
   document.addEventListener('mousemove', handleMouseMove);
+
+  // 直接windowにキーイベントリスナーを追加（デバッグ用）
+  const debugKeyDown = (event: KeyboardEvent) => {
+    console.log('🔑 Direct window keydown:', {
+      key: event.key,
+      code: event.code,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      target: event.target,
+      timestamp: Date.now()
+    });
+  };
+
+  const debugKeyUp = (event: KeyboardEvent) => {
+    console.log('🔑 Direct window keyup:', {
+      key: event.key,
+      code: event.code,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey
+    });
+  };
+
+  window.addEventListener('keydown', debugKeyDown, true); // capture=true
+  window.addEventListener('keyup', debugKeyUp, true);
+
+  console.log('✅ RugbyBoard: Direct key listeners added to window');
+
+  // クリーンアップ用に保存
+  (window as any)._rugbyBoardKeyListeners = { debugKeyDown, debugKeyUp };
 });
 
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleMouseMove);
+
+  // 直接追加したキーリスナーをクリーンアップ
+  const listeners = (window as any)._rugbyBoardKeyListeners;
+  if (listeners) {
+    window.removeEventListener('keydown', listeners.debugKeyDown, true);
+    window.removeEventListener('keyup', listeners.debugKeyUp, true);
+    delete (window as any)._rugbyBoardKeyListeners;
+    console.log('🧹 RugbyBoard: Direct key listeners removed');
+  }
 });
 </script>
 
