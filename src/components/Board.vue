@@ -310,6 +310,10 @@ export default {
       this.boardSettings[setting] = value;
       if (setting === 'showNumbers') {
         this.selectedNumBool.value = value;
+        // 背番号表示切り替え時にプレイヤーのドラッグイベントを再初期化
+        this.$nextTick(() => {
+          this.initializePlayerDragEvents();
+        });
       }
       if (setting === 'showLines') {
         this.selectedLineBool.value = value;
@@ -383,12 +387,18 @@ export default {
         let players = [...document.getElementsByClassName(team.name)];
         players.forEach((player, index) => {
           if (this.players[i] && this.players[i][index]) {
+            // 既存のイベントリスナーをクリーンアップ
+            if (player._mousedownHandler) {
+              player.removeEventListener('mousedown', player._mousedownHandler);
+            }
+
             player.style.position = 'absolute';
             player.style.left = this.players[i][index].x + 'px';
             player.style.top = this.players[i][index].y + 'px';
             player.style.zIndex = this.players[i][index].zIndex;
 
-            player.addEventListener('mousedown', event => {
+            // イベントハンドラーを作成して参照を保存
+            const mousedownHandler = (event) => {
               event.preventDefault();
               this.isMove = true;
 
@@ -431,7 +441,11 @@ export default {
               };
 
               document.addEventListener('mouseup', onMouseUp);
-            });
+            };
+
+            // イベントハンドラーの参照を保存してイベントリスナーを追加
+            player._mousedownHandler = mousedownHandler;
+            player.addEventListener('mousedown', mousedownHandler);
 
             player.ondragstart = function() {
               return false;
@@ -441,7 +455,7 @@ export default {
       });
     },
 
-        /**
+    /**
      * キャンバス上の正確な座標を取得
      */
     getCanvasCoordinates(event) {
@@ -520,8 +534,6 @@ export default {
       let data = canvas.toDataURL();
       localStorage.setItem('drawPath', data);
     },
-
-
 
     /**
      * ログアウト
@@ -618,6 +630,11 @@ export default {
         });
       });
       localStorage.setItem('players', JSON.stringify(this.players));
+
+      // 再配置後にドラッグイベントを再初期化
+      this.$nextTick(() => {
+        this.initializePlayerDragEvents();
+      });
     },
 
     /**
