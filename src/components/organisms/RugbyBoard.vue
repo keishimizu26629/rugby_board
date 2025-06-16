@@ -1,6 +1,12 @@
 <template>
   <div class="rugby-board">
-    <div class="board-container" @click="handleBoardClick">
+    <div
+      class="board-container"
+      @click="handleBoardClick"
+      @mousedown="handleBoardMouseDown"
+      @mousemove="handleBoardMouseMove"
+      @mouseup="handleBoardMouseUp"
+    >
       <div class="canvas-container">
         <RugbyField
           :show-lines="boardSettings.showLines"
@@ -13,6 +19,18 @@
           :line-settings="lineSettings"
         />
       </div>
+
+      <!-- 矩形選択ボックス -->
+      <div
+        v-if="selectionManager.rectangle.value.isActive"
+        class="selection-rectangle"
+        :style="{
+          left: selectionManager.selectionRectangle.value.x + 'px',
+          top: selectionManager.selectionRectangle.value.y + 'px',
+          width: selectionManager.selectionRectangle.value.width + 'px',
+          height: selectionManager.selectionRectangle.value.height + 'px'
+        }"
+      />
 
       <!-- プレイヤーピースの表示 -->
       <PlayerPiece
@@ -50,6 +68,7 @@
       :positions="positions"
       :selected-position="selectedPosition"
       :is-loading="isLoading"
+      :is-rectangle-mode="selectionManager.isRectangleMode.value"
       @update-board-settings="handleBoardSettingsUpdate"
       @update-line-settings="handleLineSettingsUpdate"
       @add-marker="handleAddMarker"
@@ -59,7 +78,7 @@
       @save-position="handleSavePosition"
       @apply-position="handleApplyPosition"
       @delete-position="handleDeletePosition"
-      @logout="handleLogout"
+      @set-selection-mode="handleSetSelectionMode"
     />
 
     <PositionModal
@@ -78,7 +97,7 @@ defineOptions({
 
 import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 import { useBoard } from '@/composables/useBoard';
-import { useMultiSelect } from '@/composables/useMultiSelect';
+import { useSelectionManager } from '@/composables/use-selection-manager';
 import { useAuth } from '@/composables/useAuth';
 import { useUserStore } from '@/stores/user';
 import { useDragAndDrop } from '@/composables/useDragAndDrop';
@@ -120,6 +139,13 @@ const {
   updateLineSettings
 } = useBoard();
 
+// 選択管理機能
+const selectionManager = useSelectionManager();
+console.log('🚀 RugbyBoard: selectionManager initialized:', {
+  currentMode: selectionManager.currentMode.value,
+  isRectangleMode: selectionManager.isRectangleMode.value
+});
+
 const { logout } = useAuth();
 const userStore = useUserStore();
 
@@ -157,6 +183,12 @@ const allPlayersWithSelection = computed(() => {
 
 // Event Handlers
 const handlePlayerMouseDown = (event: MouseEvent, playerId: string) => {
+  // 矩形選択モードでは個別プレイヤーのドラッグを無効化
+  if (selectionManager.isRectangleMode.value) {
+    event.stopPropagation();
+    return;
+  }
+
   startMultiDrag(playerId);
   startDrag(event, playerId, 'player');
 };
@@ -174,6 +206,11 @@ const handleMarkerMouseUp = (event: MouseEvent) => {
 };
 
 const handleDrawStart = (event: MouseEvent) => {
+  // 矩形選択モードでは描画を無効化
+  if (selectionManager.isRectangleMode.value) {
+    return;
+  }
+
   const context = drawingCanvasRef.value?.getContext();
   if (context) {
     startDrawing(event, context);
@@ -181,10 +218,20 @@ const handleDrawStart = (event: MouseEvent) => {
 };
 
 const handleDrawMove = (event: MouseEvent) => {
+  // 矩形選択モードでは描画を無効化
+  if (selectionManager.isRectangleMode.value) {
+    return;
+  }
+
   draw(event);
 };
 
 const handleDrawEnd = (event: MouseEvent) => {
+  // 矩形選択モードでは描画を無効化
+  if (selectionManager.isRectangleMode.value) {
+    return;
+  }
+
   endDrawing(event);
 };
 
@@ -279,8 +326,34 @@ const handleBoardClick = (event: MouseEvent) => {
   }
 };
 
-// 直接useMultiSelectを使用してonMountedを実行させる
-const multiSelectDebug = useMultiSelect();
+// ボード内でのマウスイベント（矩形選択用）
+const handleBoardMouseDown = (event: MouseEvent) => {
+  if (selectionManager.isRectangleMode.value) {
+    event.preventDefault();
+    selectionManager.startRectangleSelection(event);
+  }
+};
+
+const handleBoardMouseMove = (event: MouseEvent) => {
+  if (selectionManager.isRectangleMode.value) {
+    selectionManager.updateRectangleSelection(event);
+  }
+};
+
+const handleBoardMouseUp = (event: MouseEvent) => {
+  if (selectionManager.isRectangleMode.value) {
+    selectionManager.completeRectangleSelection(players.value);
+  }
+};
+
+// 矩形選択関連のイベントハンドラー
+const handleSetSelectionMode = (mode: 'normal' | 'rectangle') => {
+  console.log('🔄 Selection mode changing to:', mode);
+  console.log('🔍 Current state before:', selectionManager.currentMode.value);
+  selectionManager.setMode(mode);
+  console.log('✅ New state after:', selectionManager.currentMode.value);
+  console.log('📊 isRectangleMode:', selectionManager.isRectangleMode.value);
+};
 
 // 最もシンプルなデバッグ - RugbyBoardのマウント確認
 console.log('RugbyBoard script setup executed');
@@ -361,5 +434,14 @@ onUnmounted(() => {
   border: 2px solid #333;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* 矩形選択ボックス */
+.selection-rectangle {
+  position: absolute;
+  border: 2px dashed #2196f3;
+  background-color: rgba(33, 150, 243, 0.1);
+  pointer-events: none;
+  z-index: 1000;
 }
 </style>

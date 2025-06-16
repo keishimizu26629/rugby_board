@@ -24,6 +24,37 @@
       </div>
     </div>
 
+    <!-- 選択方式切り替えセクション -->
+    <div class="selection-section">
+      <h4 class="section-title">
+        選択方式
+      </h4>
+      <div class="mode-toggle">
+        <button
+          :class="['mode-btn', { active: !isRectangleMode }]"
+          @click="handleNormalModeClick"
+        >
+          🖱️ 通常選択
+        </button>
+        <button
+          :class="['mode-btn', { active: isRectangleMode }]"
+          @click="handleRectangleModeClick"
+        >
+          ⬛ 矩形選択
+        </button>
+      </div>
+
+      <!-- モード説明 -->
+      <div class="mode-description">
+        <p v-if="!isRectangleMode">
+          Ctrl/Cmd+クリックで複数選択
+        </p>
+        <p v-else>
+          ドラッグで矩形選択（描画無効）
+        </p>
+      </div>
+    </div>
+
     <!-- 描画設定：アイコンベース -->
     <div class="drawing-section">
       <h4 class="section-title">
@@ -175,11 +206,22 @@ interface Props {
   positions: Position[];
   selectedPosition: string;
   isLoading: boolean;
+  isRectangleMode: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+console.log('📥 ControlPanel: Props received:', {
+  isRectangleModeReceived: 'isRectangleMode' in props,
+  isRectangleModeValue: props.isRectangleMode
+});
 
-defineEmits<{
+// デバッグ用：propsの変更を監視
+import { watch } from 'vue';
+watch(() => props.isRectangleMode, (newValue, oldValue) => {
+  console.log('📝 ControlPanel: isRectangleMode changed:', { oldValue, newValue });
+}, { immediate: true });
+
+const emits = defineEmits<{
   'update-board-settings': [setting: string, value: boolean];
   'update-line-settings': [settings: Partial<LineSettings>];
   'add-marker': [];
@@ -189,6 +231,7 @@ defineEmits<{
   'save-position': [];
   'apply-position': [positionName: string];
   'delete-position': [positionName: string];
+  'set-selection-mode': [mode: 'normal' | 'rectangle'];
 }>();
 
 // 色オプション
@@ -207,6 +250,21 @@ const thicknessOptions = [
   { value: 4, name: '中', preview: 4 },
   { value: 6, name: '太', preview: 6 }
 ];
+
+// 選択モード切り替えハンドラー
+const handleNormalModeClick = () => {
+  console.log('🖱️ ControlPanel: Normal mode button clicked');
+  console.log('📤 ControlPanel: About to emit set-selection-mode with normal');
+  emits('set-selection-mode', 'normal');
+  console.log('✅ ControlPanel: Emitted set-selection-mode with normal');
+};
+
+const handleRectangleModeClick = () => {
+  console.log('⬛ ControlPanel: Rectangle mode button clicked');
+  console.log('📤 ControlPanel: About to emit set-selection-mode with rectangle');
+  emits('set-selection-mode', 'rectangle');
+  console.log('✅ ControlPanel: Emitted set-selection-mode with rectangle');
+};
 </script>
 
 <style scoped>
@@ -252,6 +310,45 @@ const thicknessOptions = [
 .toggle-label {
   color: #333;
   font-weight: 500;
+}
+
+/* 選択方式切り替えセクション */
+.selection-section {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.mode-btn.active {
+  border-color: #2196f3;
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: bold;
+}
+
+.mode-description {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  font-style: italic;
 }
 
 .btn-clear-drawing {

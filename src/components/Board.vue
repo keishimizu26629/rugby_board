@@ -14,7 +14,13 @@
     </header>
 
     <div id="container">
-      <div id="board">
+      <div
+        id="board"
+        :class="{ 'rectangle-mode': isRectangleMode }"
+        @mousedown="handleBoardMouseDown"
+        @mousemove="handleBoardMouseMove"
+        @mouseup="handleBoardMouseUp"
+      >
         <RugbyField
           ref="rugbyField"
           :show-lines="selectedLineBool.value"
@@ -89,6 +95,18 @@
           src="/ball.png"
           class="player ball drawPlayer"
         >
+
+        <!-- 矩形選択可視化 -->
+        <div
+          v-if="rectangleSelection.isActive"
+          class="selection-rectangle"
+          :style="{
+            left: selectionRectangle.x + 'px',
+            top: selectionRectangle.y + 'px',
+            width: selectionRectangle.width + 'px',
+            height: selectionRectangle.height + 'px',
+          }"
+        />
       </div>
 
       <!-- コントロールパネル -->
@@ -98,6 +116,7 @@
         :positions="positions"
         :selected-position="selectPosition"
         :is-loading="isLoading"
+        :is-rectangle-mode="isRectangleMode"
         @update-board-settings="updateBoardSettings"
         @update-line-settings="updateLineSettings"
         @add-marker="addSpot"
@@ -107,6 +126,7 @@
         @save-position="openModal"
         @apply-position="applyPosition"
         @delete-position="deletePosition"
+        @set-selection-mode="handleSetSelectionMode"
       />
     </div>
 
@@ -198,6 +218,18 @@ export default {
       shiftX: 0,          // マウスとオブジェクトのX方向オフセット
       shiftY: 0,          // マウスとオブジェクトのY方向オフセット
 
+      // 選択モード管理
+      currentSelectionMode: 'normal', // 'normal' | 'rectangle'
+
+      // 矩形選択状態
+      rectangleSelection: {
+        isActive: false,
+        startX: 0,
+        startY: 0,
+        endX: 0,
+        endY: 0
+      },
+
       // その他
       count: 0,           // カウンター（未使用）
       testPositions: [], // テストポジション配列（未使用）
@@ -281,6 +313,28 @@ export default {
       return (num) => {
         return num + 'px'
       }
+    },
+
+    /**
+     * 矩形選択モードかどうか
+     * @returns {boolean} 矩形選択モードの場合true
+     */
+    isRectangleMode() {
+      return this.currentSelectionMode === 'rectangle';
+    },
+
+    /**
+     * 選択矩形の表示情報
+     * @returns {Object} 矩形の位置とサイズ情報
+     */
+    selectionRectangle() {
+      const { startX, startY, endX, endY } = this.rectangleSelection;
+      return {
+        x: Math.min(startX, endX),
+        y: Math.min(startY, endY),
+        width: Math.abs(endX - startX),
+        height: Math.abs(endY - startY)
+      };
     },
   },
   watch: {
@@ -390,6 +444,165 @@ export default {
   },
 
   methods: {
+    /**
+     * 選択モード切り替えハンドラー
+     * @param {string} mode - 選択モード（'normal' | 'rectangle'）
+     */
+    handleSetSelectionMode(mode) {
+      console.log('🔄 Selection mode changing to:', mode);
+      this.currentSelectionMode = mode;
+
+      if (mode === 'rectangle') {
+        // 矩形選択モードでは既存選択をクリア
+        this.clearSelection();
+      }
+    },
+
+    /**
+     * 矩形選択開始
+     * @param {MouseEvent} event - マウスイベント
+     */
+    startRectangleSelection(event) {
+      if (!this.isRectangleMode) return;
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      this.rectangleSelection = {
+        isActive: true,
+        startX: event.clientX - rect.left,
+        startY: event.clientY - rect.top,
+        endX: event.clientX - rect.left,
+        endY: event.clientY - rect.top
+      };
+    },
+
+    /**
+     * 矩形選択更新
+     * @param {MouseEvent} event - マウスイベント
+     */
+    updateRectangleSelection(event) {
+      if (!this.rectangleSelection.isActive) return;
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      this.rectangleSelection.endX = event.clientX - rect.left;
+      this.rectangleSelection.endY = event.clientY - rect.top;
+    },
+
+    /**
+     * 矩形選択完了
+     */
+    completeRectangleSelection() {
+      if (!this.rectangleSelection.isActive) return;
+
+      console.log('🔍 矩形選択完了デバッグ情報:');
+      console.log('矩形情報:', this.selectionRectangle);
+      console.log('プレイヤーデータ:', this.players);
+
+      // 既存選択をクリア
+      this.clearSelection();
+
+      let selectedCount = 0;
+
+      // 矩形内のプレイヤーを選択（実際のDOM座標を使用）
+      this.players.forEach((team, teamIndex) => {
+        team.forEach((player, playerIndex) => {
+          // 実際のDOM座標を取得
+          const realPos = this.getPlayerRealPosition(teamIndex, playerIndex);
+
+          console.log(`プレイヤー [${teamIndex}][${playerIndex}]:`, {
+            dataX: player.x,
+            dataY: player.y,
+            realX: realPos?.x,
+            realY: realPos?.y,
+            number: player.number,
+            inRectangleData: this.isPlayerInRectangle(player.x, player.y),
+            inRectangleReal: realPos ? this.isPlayerInRectangle(realPos.x, realPos.y) : false
+          });
+
+          // 実際のDOM座標で判定
+          if (realPos && this.isPlayerInRectangle(realPos.x, realPos.y)) {
+            selectedCount++;
+            const playerId = `${teamIndex}_${playerIndex}`;
+            console.log(`✅ 選択対象: ${playerId}`);
+            this.handlePlayerSelection(playerId, teamIndex, playerIndex, true);
+          }
+        });
+      });
+
+      console.log(`📊 選択されたプレイヤー数: ${selectedCount}`);
+      this.rectangleSelection.isActive = false;
+    },
+
+    /**
+     * DOM要素から実際の座標を取得
+     * @param {number} teamIndex - チームインデックス
+     * @param {number} playerIndex - プレイヤーインデックス
+     * @returns {Object|null} 実際の座標情報、または要素が見つからない場合null
+     */
+    getPlayerRealPosition(teamIndex, playerIndex) {
+      const teamClass = this.teams[teamIndex]?.name;
+      if (!teamClass) return null;
+
+      const players = document.getElementsByClassName(teamClass);
+      const player = players[playerIndex];
+
+      if (!player) return null;
+
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+      const playerRect = player.getBoundingClientRect();
+
+      return {
+        x: playerRect.left - boardRect.left + (playerRect.width / 2),
+        y: playerRect.top - boardRect.top + (playerRect.height / 2)
+      };
+    },
+
+    /**
+     * プレイヤーが矩形内にあるかチェック
+     * @param {number} playerX - プレイヤーのX座標
+     * @param {number} playerY - プレイヤーのY座標
+     * @returns {boolean} 矩形内にある場合true
+     */
+    isPlayerInRectangle(playerX, playerY) {
+      const rect = this.selectionRectangle;
+      return (
+        playerX >= rect.x &&
+        playerX <= rect.x + rect.width &&
+        playerY >= rect.y &&
+        playerY <= rect.y + rect.height
+      );
+    },
+
+    /**
+     * ボードマウスダウンイベント
+     * @param {MouseEvent} event - マウスイベント
+     */
+    handleBoardMouseDown(event) {
+      if (this.isRectangleMode) {
+        event.preventDefault();
+        this.startRectangleSelection(event);
+      }
+    },
+
+    /**
+     * ボードマウスムーブイベント
+     * @param {MouseEvent} event - マウスイベント
+     */
+    handleBoardMouseMove(event) {
+      if (this.isRectangleMode) {
+        this.updateRectangleSelection(event);
+      }
+    },
+
+    /**
+     * ボードマウスアップイベント
+     * @param {MouseEvent} event - マウスイベント
+     */
+    handleBoardMouseUp(event) {
+      if (this.isRectangleMode) {
+        this.completeRectangleSelection();
+      }
+    },
+
     /**
      * ボードの設定を更新
      * ライン表示、背番号表示の切り替えを管理
@@ -695,6 +908,11 @@ export default {
      * @param {MouseEvent} e - マウスイベント
      */
     drawStart(e) {
+      // 矩形選択モード時は描画を無効化
+      if (this.isRectangleMode) {
+        return;
+      }
+
       // 描画モード中はプレイヤーのドラッグを無効化
       let players = [...document.getElementsByClassName('player')];
       players.forEach(player => {
@@ -1044,6 +1262,14 @@ export default {
      * @param {boolean} isMultiSelect - 複数選択モードかどうか
      */
     handlePlayerSelection(playerId, teamIndex, playerIndex, isMultiSelect) {
+      console.log('🎯 プレイヤー選択処理:', {
+        playerId,
+        teamIndex,
+        playerIndex,
+        isMultiSelect,
+        playerExists: !!(this.players[teamIndex] && this.players[teamIndex][playerIndex])
+      });
+
       if (!isMultiSelect) {
         // 単一選択時：既存の選択はクリアせず、新しいプレイヤーを追加選択
         this.selectPlayer(playerId, teamIndex, playerIndex);
@@ -1062,6 +1288,8 @@ export default {
     selectPlayer(playerId, teamIndex, playerIndex) {
       // 既に選択されているかチェック
       const existingIndex = this.selectedPlayers.findIndex(p => p.id === playerId);
+      console.log('🔘 selectPlayer:', { playerId, existingIndex, beforeCount: this.selectedPlayers.length });
+
       if (existingIndex === -1) {
         this.selectionCounter++;
         this.selectedPlayers.push({
@@ -1070,8 +1298,9 @@ export default {
           playerIndex,
           order: this.selectionCounter
         });
-
-
+        console.log('✅ プレイヤー追加:', { playerId, afterCount: this.selectedPlayers.length });
+      } else {
+        console.log('⚠️ プレイヤー既に選択済み:', playerId);
       }
     },
 
@@ -1120,7 +1349,7 @@ export default {
      * 選択状態の視覚的更新
      */
     updatePlayerVisualSelection() {
-
+      console.log('🎨 視覚的更新開始:', { selectedPlayersCount: this.selectedPlayers.length, selectedPlayers: this.selectedPlayers });
 
       const teams = this.teams;
 
@@ -1133,6 +1362,14 @@ export default {
           const selectionOrder = this.getSelectionOrder(playerId);
           const isMultiSelected = this.selectedPlayers.length > 1 && isSelected;
 
+          console.log(`🔍 視覚更新 [${teamIndex}][${playerIndex}]:`, {
+            playerId,
+            isSelected,
+            selectionOrder,
+            isMultiSelected,
+            hasElement: !!playerElement
+          });
+
           // CSSクラスを更新
           playerElement.classList.toggle('selected', isSelected && !isMultiSelected);
           playerElement.classList.toggle('multi-selected', isMultiSelected);
@@ -1140,7 +1377,6 @@ export default {
           // 選択順序をdata属性として設定
           if (isSelected) {
             playerElement.setAttribute('data-selection-order', selectionOrder.toString());
-
           } else {
             playerElement.removeAttribute('data-selection-order');
           }
@@ -1620,6 +1856,37 @@ export default {
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ===== 矩形選択機能のスタイル ===== */
+
+/* 矩形選択モードのカーソル */
+#board.rectangle-mode {
+  cursor: crosshair;
+}
+
+/* 矩形選択時のプレイヤークリック無効化 */
+#board.rectangle-mode .player {
+  pointer-events: none;
+}
+
+/* 選択矩形の可視化 */
+.selection-rectangle {
+  position: absolute;
+  border: 2px dashed #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+  pointer-events: none;
+  z-index: 1000;
+  animation: rectanglePulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes rectanglePulse {
+  from {
+    border-color: #2196f3;
+  }
+  to {
+    border-color: #64b5f6;
   }
 }
 </style>
