@@ -16,7 +16,11 @@
     <div id="container">
       <div
         id="board"
-        :class="{ 'rectangle-mode': isRectangleMode }"
+        :class="{
+          'rectangle-mode': isRectangleMode,
+          'selection-mode': currentRectangleMode === 'selection',
+          'drag-mode': currentRectangleMode === 'drag',
+        }"
         @mousedown="handleBoardMouseDown"
         @mousemove="handleBoardMouseMove"
         @mouseup="handleBoardMouseUp"
@@ -46,33 +50,45 @@
           @mouseup="touchend()"
         />
 
-        <!-- プレイヤー表示 -->
+        <!-- プレイヤー表示（マウスイベント追加） -->
         <template v-if="selectedNumBool.value">
           <div
-            v-for="player in players[0]"
-            :key="player.id"
+            v-for="(player, index) in players[0]"
+            :key="`team0_player${index}`"
             class="player my-team drawPlayer"
+            @mouseenter="handlePlayerMouseEnter($event, 0, index)"
+            @mouseleave="handlePlayerMouseLeave($event)"
+            @mousedown="handlePlayerMouseDown($event, 0, index)"
           >
             {{ player.number }}
           </div>
           <div
-            v-for="player in players[1]"
-            :key="player.id"
+            v-for="(player, index) in players[1]"
+            :key="`team1_player${index}`"
             class="player opponent drawPlayer"
+            @mouseenter="handlePlayerMouseEnter($event, 1, index)"
+            @mouseleave="handlePlayerMouseLeave($event)"
+            @mousedown="handlePlayerMouseDown($event, 1, index)"
           >
             {{ player.number }}
           </div>
         </template>
         <template v-else>
           <div
-            v-for="player in players[0]"
-            :key="player.id"
+            v-for="(player, index) in players[0]"
+            :key="`team0_player${index}`"
             class="player my-team drawPlayer"
+            @mouseenter="handlePlayerMouseEnter($event, 0, index)"
+            @mouseleave="handlePlayerMouseLeave($event)"
+            @mousedown="handlePlayerMouseDown($event, 0, index)"
           />
           <div
-            v-for="player in players[1]"
-            :key="player.id"
+            v-for="(player, index) in players[1]"
+            :key="`team1_player${index}`"
             class="player opponent drawPlayer"
+            @mouseenter="handlePlayerMouseEnter($event, 1, index)"
+            @mouseleave="handlePlayerMouseLeave($event)"
+            @mousedown="handlePlayerMouseDown($event, 1, index)"
           />
         </template>
 
@@ -96,9 +112,9 @@
           class="player ball drawPlayer"
         >
 
-        <!-- 矩形選択可視化 -->
+        <!-- 矩形選択可視化（条件付き表示） -->
         <div
-          v-if="rectangleSelection.isActive"
+          v-if="shouldShowRectangleSelection && rectangleSelection.isActive"
           class="selection-rectangle"
           :style="{
             left: selectionRectangle.x + 'px',
@@ -230,6 +246,10 @@ export default {
         endY: 0
       },
 
+      // 新しい状態管理
+      rectangleInteractionMode: 'selection', // 'selection' | 'drag'
+      isHoveringSelectedPlayer: false,
+
       // その他
       count: 0,           // カウンター（未使用）
       testPositions: [], // テストポジション配列（未使用）
@@ -335,6 +355,23 @@ export default {
         width: Math.abs(endX - startX),
         height: Math.abs(endY - startY)
       };
+    },
+
+    /**
+     * 現在の矩形選択動作モードを判定
+     * @returns {string} 'selection' | 'drag' | null
+     */
+    currentRectangleMode() {
+      if (!this.isRectangleMode) return null;
+      return this.selectedPlayers.length > 0 ? 'drag' : 'selection';
+    },
+
+    /**
+     * 矩形選択を表示すべきかどうか
+     * @returns {boolean}
+     */
+    shouldShowRectangleSelection() {
+      return this.isRectangleMode && this.currentRectangleMode === 'selection';
     },
   },
   watch: {
@@ -487,52 +524,109 @@ export default {
       this.rectangleSelection.endY = event.clientY - rect.top;
     },
 
-    /**
+            /**
      * 矩形選択完了
      */
     completeRectangleSelection() {
       if (!this.rectangleSelection.isActive) return;
 
-      console.log('🔍 矩形選択完了デバッグ情報:');
-      console.log('矩形情報:', this.selectionRectangle);
-      console.log('プレイヤーデータ:', this.players);
+      console.log('🔍 矩形選択完了:', this.selectionRectangle);
 
-      // 既存選択をクリア
+      // DOM要素の状況を確認
+      const allTeamNames = ['my-team', 'opponent', 'ball', 'points'];
+      allTeamNames.forEach((teamName, index) => {
+        const elements = document.getElementsByClassName(teamName);
+        console.log(`チーム ${teamName}: ${elements.length}個の要素`);
+      });
+
+            // 既存選択をクリア
       this.clearSelection();
 
       let selectedCount = 0;
+      const selectedPlayers = []; // 選択されたプレイヤーを一時保存
 
-      // 矩形内のプレイヤーを選択（実際のDOM座標を使用）
-      this.players.forEach((team, teamIndex) => {
-        team.forEach((player, playerIndex) => {
+      // 全てのチーム（プレイヤー、ボール、ポイント）を処理
+      for (let teamIndex = 0; teamIndex < this.players.length; teamIndex++) {
+        const team = this.players[teamIndex];
+        if (!team) continue;
+
+        for (let playerIndex = 0; playerIndex < team.length; playerIndex++) {
+          const player = team[playerIndex];
+
           // 実際のDOM座標を取得
           const realPos = this.getPlayerRealPosition(teamIndex, playerIndex);
 
-          console.log(`プレイヤー [${teamIndex}][${playerIndex}]:`, {
-            dataX: player.x,
-            dataY: player.y,
-            realX: realPos?.x,
-            realY: realPos?.y,
-            number: player.number,
-            inRectangleData: this.isPlayerInRectangle(player.x, player.y),
-            inRectangleReal: realPos ? this.isPlayerInRectangle(realPos.x, realPos.y) : false
+          if (!realPos) {
+            // エラーが詳細に表示されるため、ここでは何もしない
+            continue;
+          }
+
+          const inRectangle = this.isPlayerInRectangle(realPos.x, realPos.y);
+          const rect = this.selectionRectangle;
+          const teamName = this.teams[teamIndex]?.name || `team${teamIndex}`;
+
+          // 詳細なデバッグ情報
+          console.log(`🔍 [${teamIndex}][${playerIndex}] (${teamName}):`, {
+            pos: `(${Math.round(realPos.x)}, ${Math.round(realPos.y)})`,
+            rectRange: `X:${rect.x}-${rect.x + rect.width}, Y:${rect.y}-${rect.y + rect.height}`,
+            inX: realPos.x >= rect.x && realPos.x <= rect.x + rect.width,
+            inY: realPos.y >= rect.y && realPos.y <= rect.y + rect.height,
+            selected: inRectangle
           });
 
-          // 実際のDOM座標で判定
-          if (realPos && this.isPlayerInRectangle(realPos.x, realPos.y)) {
+          if (inRectangle) {
+            console.log(`🎯 選択: [${teamIndex}][${playerIndex}] (${teamName}) 座標(${Math.round(realPos.x)}, ${Math.round(realPos.y)})`);
             selectedCount++;
             const playerId = `${teamIndex}_${playerIndex}`;
-            console.log(`✅ 選択対象: ${playerId}`);
-            this.handlePlayerSelection(playerId, teamIndex, playerIndex, true);
+
+            // 矩形選択では直接selectPlayerを呼び出し
+            this.selectPlayer(playerId, teamIndex, playerIndex);
           }
-        });
-      });
+        }
+      }
+
+      // マーカーも矩形選択対象に追加
+      this.selectMarkersInRectangle();
+
+      // 視覚的更新を実行
+      this.updatePlayerVisualSelection();
 
       console.log(`📊 選択されたプレイヤー数: ${selectedCount}`);
       this.rectangleSelection.isActive = false;
     },
 
     /**
+     * マーカーの矩形選択処理
+     */
+    selectMarkersInRectangle() {
+      const markerElements = document.getElementsByClassName('marker');
+      console.log(`マーカー要素: ${markerElements.length}個`);
+
+      Array.from(markerElements).forEach((markerElement, index) => {
+        const boardRect = document.getElementById('board').getBoundingClientRect();
+        const markerRect = markerElement.getBoundingClientRect();
+
+        const markerPos = {
+          x: markerRect.left - boardRect.left + (markerRect.width / 2),
+          y: markerRect.top - boardRect.top + (markerRect.height / 2)
+        };
+
+        const inRectangle = this.isPlayerInRectangle(markerPos.x, markerPos.y);
+
+        if (inRectangle) {
+          console.log(`🎯 選択: マーカー[${index}] 座標(${Math.round(markerPos.x)}, ${Math.round(markerPos.y)})`);
+          // マーカー選択の視覚的フィードバックを追加
+          markerElement.classList.add('selected-marker');
+        } else {
+          // 選択されていないマーカーのクラスを削除
+          markerElement.classList.remove('selected-marker');
+        }
+      });
+    },
+
+
+
+        /**
      * DOM要素から実際の座標を取得
      * @param {number} teamIndex - チームインデックス
      * @param {number} playerIndex - プレイヤーインデックス
@@ -540,20 +634,44 @@ export default {
      */
     getPlayerRealPosition(teamIndex, playerIndex) {
       const teamClass = this.teams[teamIndex]?.name;
-      if (!teamClass) return null;
+      if (!teamClass) {
+        console.log(`❌ チーム ${teamIndex} のクラス名が見つからない`);
+        return null;
+      }
 
       const players = document.getElementsByClassName(teamClass);
       const player = players[playerIndex];
 
-      if (!player) return null;
+      if (!player) {
+        console.log(`❌ プレイヤー [${teamIndex}][${playerIndex}] のDOM要素が見つからない (${teamClass}) - 要素数: ${players.length}`);
+        return null;
+      }
 
       const boardRect = document.getElementById('board').getBoundingClientRect();
       const playerRect = player.getBoundingClientRect();
 
-      return {
+      // DOM要素の実際の中心座標を計算
+      const position = {
         x: playerRect.left - boardRect.left + (playerRect.width / 2),
         y: playerRect.top - boardRect.top + (playerRect.height / 2)
       };
+
+      // データ座標との比較（デバッグ用）
+      const playerData = this.players[teamIndex]?.[playerIndex];
+      if (playerData) {
+        const dataPos = `(${playerData.x}, ${playerData.y})`;
+        const domPos = `(${Math.round(position.x)}, ${Math.round(position.y)})`;
+        const diff = {
+          x: Math.round(position.x - playerData.x),
+          y: Math.round(position.y - playerData.y)
+        };
+
+        if (Math.abs(diff.x) > 5 || Math.abs(diff.y) > 5) {
+          console.log(`📍 [${teamIndex}][${playerIndex}] 座標差異: データ${dataPos} → DOM${domPos} (差分: ${diff.x}, ${diff.y})`);
+        }
+      }
+
+      return position;
     },
 
     /**
@@ -577,9 +695,23 @@ export default {
      * @param {MouseEvent} event - マウスイベント
      */
     handleBoardMouseDown(event) {
-      if (this.isRectangleMode) {
+      if (!this.isRectangleMode) return;
+
+      const mode = this.currentRectangleMode;
+
+      if (mode === 'selection') {
+        // Rectangle選択開始
         event.preventDefault();
         this.startRectangleSelection(event);
+      } else if (mode === 'drag') {
+        // 複数選択プレイヤーのドラッグ準備
+        // （プレイヤー上でない場合は何もしない）
+        if (!this.isHoveringSelectedPlayer) {
+          // 空いている場所をクリックした場合は選択解除
+          this.clearSelection();
+          // モードが 'selection' に変わるので再帰的に処理
+          this.handleBoardMouseDown(event);
+        }
       }
     },
 
@@ -598,9 +730,168 @@ export default {
      * @param {MouseEvent} event - マウスイベント
      */
     handleBoardMouseUp(event) {
-      if (this.isRectangleMode) {
+      if (this.isRectangleMode && this.currentRectangleMode === 'selection') {
         this.completeRectangleSelection();
       }
+    },
+
+    /**
+     * プレイヤーマウスオーバー処理
+     * @param {MouseEvent} event - マウスイベント
+     * @param {number} teamIndex - チームインデックス
+     * @param {number} playerIndex - プレイヤーインデックス
+     */
+    handlePlayerMouseEnter(event, teamIndex, playerIndex) {
+      const playerId = `${teamIndex}_${playerIndex}`;
+      const isSelected = this.isPlayerSelected(playerId);
+
+      if (this.isRectangleMode && this.currentRectangleMode === 'drag' && isSelected) {
+        this.isHoveringSelectedPlayer = true;
+        event.target.style.cursor = 'grab';
+      }
+    },
+
+    /**
+     * プレイヤーマウスリーブ処理
+     * @param {MouseEvent} event - マウスイベント
+     */
+    handlePlayerMouseLeave(event) {
+      this.isHoveringSelectedPlayer = false;
+      if (this.isRectangleMode) {
+        event.target.style.cursor = this.currentRectangleMode === 'selection' ? 'crosshair' : 'default';
+      }
+    },
+
+    /**
+     * プレイヤーマウスダウン処理（改修版）
+     * @param {MouseEvent} event - マウスイベント
+     * @param {number} teamIndex - チームインデックス
+     * @param {number} playerIndex - プレイヤーインデックス
+     */
+    handlePlayerMouseDown(event, teamIndex, playerIndex) {
+      const playerId = `${teamIndex}_${playerIndex}`;
+      const isSelected = this.isPlayerSelected(playerId);
+
+
+
+      if (this.isRectangleMode) {
+        if (this.currentRectangleMode === 'drag' && isSelected) {
+          // 選択済みプレイヤーのドラッグ処理
+          event.stopPropagation(); // ボードのイベントを停止
+          this.startSelectedPlayersDrag(event, playerId);
+        } else if (this.currentRectangleMode === 'selection') {
+          // Rectangle選択モードでは個別プレイヤーのドラッグを無効化
+          event.stopPropagation();
+          return;
+        }
+      } else {
+        // 通常モードでは既存の処理
+        this.handleNormalPlayerDrag(event, teamIndex, playerIndex);
+      }
+    },
+
+    /**
+     * 選択済みプレイヤーのドラッグ開始
+     * @param {MouseEvent} event - マウスイベント
+     * @param {string} playerId - ドラッグ開始プレイヤーID
+     */
+        startSelectedPlayersDrag(event, playerId) {
+      // カーソルを変更
+      document.body.style.cursor = 'grabbing';
+
+      // 複数選択のドラッグ処理を開始
+      this.startMultiDrag(playerId);
+
+      // 移動フラグを設定
+      this.isMove = true;
+
+      // 座標計算のため各要素の位置を取得
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+      const playerElement = event.target;
+      const playerRect = playerElement.getBoundingClientRect();
+
+      // マウスとプレイヤーの相対位置を計算（ドラッグ時のオフセット）
+      this.shiftX = event.clientX - playerRect.left;
+      this.shiftY = event.clientY - playerRect.top;
+
+      // グローバルマウスムーブ・アップイベントを設定
+      const handleMouseMove = (e) => this.handleSelectedPlayersDragMove(e, playerId);
+      const handleMouseUp = (e) => this.handleSelectedPlayersDragEnd(e, handleMouseMove, handleMouseUp);
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+
+    /**
+     * 選択済みプレイヤーのドラッグ移動
+     * @param {MouseEvent} event - マウスイベント
+     * @param {string} draggedPlayerId - ドラッグされているプレイヤーID
+     */
+    handleSelectedPlayersDragMove(event, draggedPlayerId) {
+      if (!this.isMove) return;
+
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+
+      // マウス位置をボード座標系に変換
+      const newX = event.clientX - boardRect.left - this.shiftX;
+      const newY = event.clientY - boardRect.top - this.shiftY;
+
+      // 複数選択プレイヤーの同時移動
+      this.moveSelectedPlayers(draggedPlayerId, newX, newY);
+    },
+
+    /**
+     * 選択済みプレイヤーのドラッグ終了
+     * @param {MouseEvent} event - マウスイベント
+     * @param {Function} mouseMoveHandler - マウスムーブハンドラー
+     * @param {Function} mouseUpHandler - マウスアップハンドラー
+     */
+        handleSelectedPlayersDragEnd(event, mouseMoveHandler, mouseUpHandler) {
+      // カーソルを元に戻す
+      document.body.style.cursor = 'default';
+
+      // 移動フラグを解除
+      this.isMove = false;
+
+      // イベントリスナーを削除
+      document.removeEventListener('mousemove', mouseMoveHandler);
+      document.removeEventListener('mouseup', mouseUpHandler);
+    },
+
+    /**
+     * 通常モードでのプレイヤードラッグ処理
+     * @param {MouseEvent} event - マウスイベント
+     * @param {number} teamIndex - チームインデックス
+     * @param {number} playerIndex - プレイヤーインデックス
+     */
+            handleNormalPlayerDrag(event, teamIndex, playerIndex) {
+      // 既存のプレイヤードラッグロジックを呼び出し
+      // この部分は元の initializePlayerDragEvents() の中の処理を参照
+
+      // 修飾キーの状態を確認（複数選択判定）
+      const isMultiSelect =
+        this.isCtrlPressed || this.isMetaPressed || event.ctrlKey || event.metaKey;
+
+      // プレイヤーIDを生成（teamIndex_playerIndex形式）
+      const playerId = `${teamIndex}_${playerIndex}`;
+
+      console.log(`🖱️ 通常選択: playerId=${playerId}, isMultiSelect=${isMultiSelect}`);
+
+      // 選択処理を実行
+      this.handlePlayerSelection(playerId, teamIndex, playerIndex, isMultiSelect);
+
+      // 複数選択のドラッグ開始処理
+      this.startMultiDrag(playerId);
+
+      this.isMove = true; // 移動中フラグを設定
+
+      // 座標計算のため各要素の位置を取得
+      const boardRect = document.getElementById('board').getBoundingClientRect();
+      const playerRect = event.target.getBoundingClientRect();
+
+      // マウスとプレイヤーの相対位置を計算（ドラッグ時のオフセット）
+      this.shiftX = event.clientX - playerRect.left;
+      this.shiftY = event.clientY - playerRect.top;
     },
 
     /**
@@ -1153,11 +1444,13 @@ export default {
      * 全プレイヤーを初期位置にリセット
      * 保存されたポジションデータも削除
      */
-    clearPlayer() {
+        clearPlayer() {
+      console.log('🧹 clearPlayer開始');
       this.players = [];               // プレイヤーデータをクリア
       this.createPlayers();            // 初期配置でプレイヤーを再作成
       this.rellocation();              // DOM要素の位置を更新
       localStorage.removeItem('players'); // LocalStorageの保存データを削除
+      console.log('✅ clearPlayer完了');
     },
 
     /**
@@ -1262,16 +1555,9 @@ export default {
      * @param {boolean} isMultiSelect - 複数選択モードかどうか
      */
     handlePlayerSelection(playerId, teamIndex, playerIndex, isMultiSelect) {
-      console.log('🎯 プレイヤー選択処理:', {
-        playerId,
-        teamIndex,
-        playerIndex,
-        isMultiSelect,
-        playerExists: !!(this.players[teamIndex] && this.players[teamIndex][playerIndex])
-      });
-
       if (!isMultiSelect) {
-        // 単一選択時：既存の選択はクリアせず、新しいプレイヤーを追加選択
+        // 単一選択時：既存の選択をクリアしてから新しいプレイヤーを選択
+        this.clearSelection();
         this.selectPlayer(playerId, teamIndex, playerIndex);
       } else {
         // 複数選択：トグル動作
@@ -1282,13 +1568,12 @@ export default {
       this.updatePlayerVisualSelection();
     },
 
-    /**
+        /**
      * プレイヤーを選択状態にする
      */
     selectPlayer(playerId, teamIndex, playerIndex) {
       // 既に選択されているかチェック
       const existingIndex = this.selectedPlayers.findIndex(p => p.id === playerId);
-      console.log('🔘 selectPlayer:', { playerId, existingIndex, beforeCount: this.selectedPlayers.length });
 
       if (existingIndex === -1) {
         this.selectionCounter++;
@@ -1298,9 +1583,6 @@ export default {
           playerIndex,
           order: this.selectionCounter
         });
-        console.log('✅ プレイヤー追加:', { playerId, afterCount: this.selectedPlayers.length });
-      } else {
-        console.log('⚠️ プレイヤー既に選択済み:', playerId);
       }
     },
 
@@ -1324,10 +1606,15 @@ export default {
      * 全選択解除
      */
     clearSelection() {
-
       this.selectedPlayers = [];
       this.selectionCounter = 0;
       this.updatePlayerVisualSelection();
+
+      // マーカーの選択状態もクリア
+      const markerElements = document.getElementsByClassName('selected-marker');
+      Array.from(markerElements).forEach(marker => {
+        marker.classList.remove('selected-marker');
+      });
     },
 
     /**
@@ -1349,8 +1636,6 @@ export default {
      * 選択状態の視覚的更新
      */
     updatePlayerVisualSelection() {
-      console.log('🎨 視覚的更新開始:', { selectedPlayersCount: this.selectedPlayers.length, selectedPlayers: this.selectedPlayers });
-
       const teams = this.teams;
 
       teams.forEach((team, teamIndex) => {
@@ -1362,13 +1647,7 @@ export default {
           const selectionOrder = this.getSelectionOrder(playerId);
           const isMultiSelected = this.selectedPlayers.length > 1 && isSelected;
 
-          console.log(`🔍 視覚更新 [${teamIndex}][${playerIndex}]:`, {
-            playerId,
-            isSelected,
-            selectionOrder,
-            isMultiSelected,
-            hasElement: !!playerElement
-          });
+
 
           // CSSクラスを更新
           playerElement.classList.toggle('selected', isSelected && !isMultiSelected);
@@ -1730,6 +2009,14 @@ export default {
   cursor: grabbing;
 }
 
+.marker.selected-marker {
+  border: 3px solid #28a745;
+  background: rgba(40, 167, 69, 0.8);
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(40, 167, 69, 0.7);
+  transition: all 0.2s ease;
+}
+
 .modal {
   position: fixed;
   top: 50%;
@@ -1861,14 +2148,50 @@ export default {
 
 /* ===== 矩形選択機能のスタイル ===== */
 
-/* 矩形選択モードのカーソル */
-#board.rectangle-mode {
+/* 矩形選択モード時のボード */
+#board.rectangle-mode.selection-mode {
   cursor: crosshair;
 }
 
-/* 矩形選択時のプレイヤークリック無効化 */
-#board.rectangle-mode .player {
+#board.rectangle-mode.drag-mode {
+  cursor: default;
+}
+
+/* 選択矩形モード時のプレイヤークリック無効化 */
+#board.rectangle-mode.selection-mode .player {
   pointer-events: none;
+}
+
+/* ドラッグモード時のプレイヤー */
+#board.rectangle-mode.drag-mode .player {
+  pointer-events: auto;
+}
+
+/* 選択状態の表示強化 */
+.player.selected {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  transition: all 0.2s ease;
+}
+
+.player.multi-selected {
+  outline: 3px solid #28a745 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 10px rgba(40, 167, 69, 0.5) !important;
+  transition: all 0.2s ease;
+}
+
+/* 矩形選択モード時の選択済みプレイヤー */
+#board.rectangle-mode.drag-mode .player.multi-selected:hover {
+  cursor: grab;
+  transform: scale(1.05);
+  transition: transform 0.1s ease;
+}
+
+#board.rectangle-mode.drag-mode .player.multi-selected.dragging {
+  cursor: grabbing !important;
+  transform: scale(1.1);
+  z-index: 9999;
 }
 
 /* 選択矩形の可視化 */
@@ -1888,5 +2211,34 @@ export default {
   to {
     border-color: #64b5f6;
   }
+}
+
+/* カーソルヒント */
+#board.rectangle-mode.selection-mode::before {
+  content: "ドラッグで矩形選択";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(33, 150, 243, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+#board.rectangle-mode.drag-mode::before {
+  content: "選択したコマをドラッグで移動";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(40, 167, 69, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1001;
 }
 </style>
