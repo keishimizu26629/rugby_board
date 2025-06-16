@@ -354,7 +354,7 @@ const handleRectangleModeClick = () => {
 .btn-clear-drawing {
   padding: 8px 12px;
   background: #ff5722;
-  color: white;
+  color: #333;
   border: none;
   border-radius: 6px;
   cursor: pointer;
