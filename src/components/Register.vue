@@ -6,21 +6,23 @@
         <label>
           メールアドレス
           <input
+            v-model="userAccountData.mailAddress"
             type="text"
             placeholder="E-mail"
-            v-model="userAccountData.mailAddress"
           >
         </label>
         <label>
           パスワード
           <input
+            v-model="userAccountData.password"
             type="password"
             placeholder="Password"
-            v-model="userAccountData.password"
           >
         </label>
       </fieldset>
-      <div id="loginError">{{ loginError }}</div>
+      <div id="loginError">
+        {{ loginError }}
+      </div>
     </div>
 
     <div
@@ -40,12 +42,10 @@
       <!-- <p>Copyright ©2019 ○○ Inc. All rights reserved</p>
       <div>gifts.com</div> -->
     </footer>
-
   </div>
 </template>
 
 <script>
-import axios from '../axiosAuth';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuthStore } from '@/stores/auth';
 
@@ -70,16 +70,6 @@ export default {
     }
   },
   methods: {
-    register() {
-      axios.post('/accounts:signUp?key=AIzaSyCH58r7rQrY3tK9lz68RkCvlq-6QVzWq40',{
-        email: this.userAccountData.mailAddress,
-        password: this.userAccountData.password,
-        returnSecureToken: true
-      })
-      .then(response => {
-        console.log(response);
-      });
-    },
     register2() {
       const auth = getAuth();
       createUserWithEmailAndPassword(auth, this.userAccountData.mailAddress, this.userAccountData.password)
