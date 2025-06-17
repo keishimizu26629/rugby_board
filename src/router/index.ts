@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import Board from '@/components/Board.vue'
+import Home from '@/views/Home.vue'
+import Board from '@/views/Board.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/components/Register.vue'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
@@ -12,10 +13,20 @@ import type { User } from 'firebase/auth'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    name: 'Home',
+    component: Home,
+    meta: {
+      requiresAuth: true,
+      title: 'Figmaライク ラグビーボード'
+    }
+  },
+  {
+    path: '/board',
     name: 'Board',
     component: Board,
     meta: {
-      requiresAuth: true
+      requiresAuth: true,
+      title: '旧仕様 ラグビーボード'
     }
   },
   {

@@ -1,9 +1,11 @@
 import { ref, computed, inject } from 'vue';
 import type { AuthRepository } from '@/types/authRepository';
 import type { User, AuthCredentials } from '@/types/user';
+import { useAuthStore } from '@/stores/auth';
 
 export function useAuth() {
   const authRepo = inject<AuthRepository>('authRepo')!;
+  const authStore = useAuthStore();
 
   const currentUser = ref<User | null>(null);
   const isLoading = ref(false);
@@ -75,3 +77,26 @@ export function useAuth() {
     clearError
   };
 }
+
+/**
+ * 認証機能コンポーザブル
+ * AuthStoreのラッパーとして機能
+ */
+export const useAuthStoreWrapper = () => {
+  const authStore = useAuthStore();
+
+  const logout = async () => {
+    try {
+      await authStore.logout();
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      throw error;
+    }
+  };
+
+  return {
+    currentUser: authStore.currentUser,
+    isLoggedIn: authStore.isLoggedIn,
+    logout,
+  };
+};

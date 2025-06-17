@@ -1,24 +1,24 @@
 <template>
-  <div class="home-view">
+  <div class="board-view">
     <!-- 開発用切り替えナビゲーション -->
     <DevViewSwitcher />
 
-    <!-- 新しいFigmaライクなRugbyBoard -->
-    <FigmaLikeRugbyBoard />
+    <!-- 旧仕様のBoard.vueコンポーネント -->
+    <Board />
   </div>
 </template>
 
 <script setup lang="ts">
-import FigmaLikeRugbyBoard from '@/components/organisms/FigmaLikeRugbyBoard.vue';
+import Board from '@/components/Board.vue';
 import DevViewSwitcher from '@/components/atoms/DevViewSwitcher.vue';
 
 defineOptions({
-  name: 'HomeView'
+  name: 'BoardView'
 });
 </script>
 
 <style scoped>
-.home-view {
+.board-view {
   width: 100%;
   height: 100vh;
   display: flex;
